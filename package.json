@@ -1,0 +1,22 @@
+{
+  "name": "imgmeta-seo",
+  "version": "1.0.0",
+  "description": "CLI & Web UI pemroses metadata foto microstock zero-dependency",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js scan \"photo/*.*\"",
+    "web": "node index.js web",
+    "selftest": "node test/selftest.js"
+  },
+  "keywords": [
+    "microstock",
+    "metadata",
+    "seo",
+    "exif",
+    "iptc",
+    "xmp"
+  ],
+  "author": "",
+  "license": "ISC"
+}

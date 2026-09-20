@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IMGMETA-SEO // Microstock Metadata Console</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- HEADER BAR -->
+    <header class="app-header">
+      <div class="brand-section">
+        <div class="brand-logo">
+          <span>IMGMETA-SEO</span>
+          <span class="brand-badge">STOCK CONSOLE</span>
+        </div>
+        <div class="brand-divider"></div>
+        <div class="header-status">
+          <span class="status-dot"></span>
+          <span>PORT :3030 // READY</span>
+        </div>
+      </div>
+
+      <div class="header-metrics">
+        <div class="metric-item">
+          <span class="metric-label">Directory</span>
+          <span class="metric-value font-mono">./photo</span>
+        </div>
+        <div class="metric-item">
+          <span class="metric-label">Queue</span>
+          <span class="metric-value font-mono" id="headerQueueCount">0 / 0</span>
+        </div>
+        <div class="metric-item">
+          <span class="metric-label">Est. Cost</span>
+          <span class="metric-value font-mono" id="headerCostValue">$0.0000</span>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; text-transform: uppercase; cursor: pointer; user-select: none; margin-right: 4px;">
+          <input type="checkbox" id="chkAutoRename" checked style="cursor: pointer; accent-color: var(--text-primary);">
+          <span>Auto-Rename Title</span>
+        </label>
+        <div class="concurrency-wrapper" title="Jumlah gambar yang diproses bersamaan (Parallel Workers)">
+          <span class="concurrency-label font-mono">THREADS:</span>
+          <select id="selectConcurrency" class="concurrency-select font-mono">
+            <option value="1">1x</option>
+            <option value="2" selected>2x</option>
+            <option value="3">3x</option>
+            <option value="4">4x</option>
+          </select>
+        </div>
+        <button id="btnScanDir" class="btn btn-secondary btn-sm" title="Perbarui daftar file dari folder photo/ dan database SQLite">
+          <span>⟳ Refresh</span>
+        </button>
+        <button id="btnAnalyzeAll" class="btn btn-primary btn-sm" title="Scan visual & SEO lalu simpan ke database SQLite (Staging)">
+          <span id="btnAnalyzeAllLabel">⚡ Scan Semua Pending</span>
+        </button>
+        <button id="btnCancelQueue" class="btn btn-danger btn-sm" style="display: none;" title="Hentikan antrean yang sedang berjalan">
+          <span>⏹ Batal Antrean</span>
+        </button>
+        <button id="btnInjectSelected" class="btn btn-success btn-sm" title="Injeksi metadata biner ke file yang dicentang">
+          <span>💾 Injeksi Terpilih (<span id="selectedCountBadge">0</span>)</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- LIVE BATCH QUEUE PROGRESS BAR -->
+    <div class="queue-progress-container" id="queueProgressContainer" style="display: none;">
+      <div class="queue-progress-header">
+        <span class="queue-status-text" id="queueStatusText">
+          <span class="spinner-icon"></span>
+          <span id="queueStatusMsg">Menyiapkan antrean pemrosesan...</span>
+        </span>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span class="queue-percentage font-mono" id="queuePercentage">0%</span>
+          <button id="btnCancelQueueBar" class="btn btn-danger btn-sm" style="padding: 2px 6px; font-size: 9px;" title="Batalkan antrean">⏹ Batal</button>
+        </div>
+      </div>
+      <div class="progress-bar-track">
+        <div class="progress-bar-fill" id="progressBarFill" style="width: 0%;"></div>
+      </div>
+    </div>
+
+    <!-- MAIN WORKSPACE -->
+    <main class="main-layout">
+      <!-- LEFT SIDEBAR: FILE LIST & QUEUE -->
+      <aside class="sidebar-files">
+        <div class="sidebar-header">
+          <div class="sidebar-title-row">
+            <span class="section-title">Stock Photo Queue</span>
+            <span class="badge" id="sidebarFileCount">0 files</span>
+          </div>
+          
+          <!-- Bulk Selection Bar -->
+          <div style="display: flex; align-items: center; justify-content: space-between; padding: 6px 12px; background: var(--bg-subtle); border-bottom: 1px solid var(--border-color); font-size: 11px;">
+            <label style="display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-weight: 600;">
+              <input type="checkbox" id="chkSelectAll" style="cursor: pointer; accent-color: var(--text-primary);">
+              <span>PILIH SEMUA</span>
+            </label>
+            <span class="font-mono text-muted" id="selectionSummary">0 dipilih</span>
+          </div>
+
+          <div class="filter-bar">
+            <button class="filter-btn active" data-filter="all">ALL</button>
+            <button class="filter-btn" data-filter="pending">PENDING</button>
+            <button class="filter-btn" data-filter="scanned">SCANNED (DB)</button>
+            <button class="filter-btn" data-filter="injected">INJECTED</button>
+            <button class="filter-btn" data-filter="errors" style="color: #dc2626;">ERRORS</button>
+          </div>
+        </div>
+
+        <div class="search-wrapper">
+          <input type="text" id="searchInput" class="search-input" placeholder="Search file or keyword...">
+        </div>
+
+        <ul class="file-list" id="fileListContainer">
+          <!-- Populated by app.js -->
+        </ul>
+      </aside>
+
+      <!-- CENTER WORKSPACE: PHOTO INSPECTOR & SEO EDITOR -->
+      <section class="workspace-center">
+        <!-- ERROR BANNER (Displayed when active file has error) -->
+        <div class="error-banner-card" id="errorBannerCard" style="display: none;">
+          <div class="error-banner-content">
+            <div class="error-banner-icon" id="errorBannerIcon">⚠️</div>
+            <div>
+              <div class="error-banner-title" id="errorBannerTitle">PROSES GAGAL</div>
+              <div class="error-banner-msg" id="errorBannerMsg">Pesan detail error di sini.</div>
+            </div>
+          </div>
+          <button id="btnRetryActiveFile" class="btn btn-secondary btn-sm" style="background:#fff; border-color:#f87171; color:#dc2626; font-weight:700;">
+            ↺ Coba Lagi (Retry)
+          </button>
+        </div>
+
+        <div class="workspace-header">
+          <div class="workspace-title-box">
+            <h1 id="activeFileTitle">Select Photo File</h1>
+            <div class="workspace-subtitle" id="activeFilePath">photo/ — No file selected</div>
+          </div>
+          <div class="header-actions" id="activeFileActions" style="display: none;">
+            <button id="btnAnalyzeSingle" class="btn btn-secondary btn-sm">
+              <span>⚡ AI Vision + SEO</span>
+            </button>
+            <button id="btnInjectSingle" class="btn btn-primary btn-sm">
+              <span>✓ Injeksi Metadata + Rename</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- PHOTO CANVAS & SEO FORM GRID -->
+        <div class="photo-workspace-grid" id="mainEditorArea" style="display: none;">
+          <!-- Left: Image Preview & Technical Spec -->
+          <div class="photo-preview-card">
+            <div class="photo-canvas-box" id="imageCanvas">
+              <img id="previewImage" src="" alt="Stock Preview">
+            </div>
+
+            <div class="photo-tech-specs">
+              <div class="spec-cell">
+                <div class="spec-label">Format / Type</div>
+                <div class="spec-val font-mono" id="specFormat">-</div>
+              </div>
+              <div class="spec-cell">
+                <div class="spec-label">Dimensions</div>
+                <div class="spec-val font-mono" id="specDimensions">-</div>
+              </div>
+              <div class="spec-cell">
+                <div class="spec-label">File Size</div>
+                <div class="spec-val font-mono" id="specFileSize">-</div>
+              </div>
+              <div class="spec-cell">
+                <div class="spec-label">Endianness</div>
+                <div class="spec-val font-mono" id="specEndian">II (Little)</div>
+              </div>
+              <div class="spec-cell" style="grid-column: span 2;">
+                <div class="spec-label">Image SHA-256 Hash</div>
+                <div class="spec-val font-mono" id="specHash" style="font-size: 9px;">-</div>
+              </div>
+            </div>
+
+            <!-- Raw AI Vision Analysis Accordion -->
+            <details class="vision-output-box" open>
+              <summary>AI Vision Raw Description (Tahap 1)</summary>
+              <div class="vision-text" id="visionRawText">Belum diproses melalui AI Vision.</div>
+            </details>
+          </div>
+
+          <!-- Right: Stock SEO Metadata Form -->
+          <div class="seo-editor-card">
+            <!-- Title Field -->
+            <div class="form-field">
+              <div class="form-label-row">
+                <label for="inputTitle" class="form-label">Stock Title (Maks 70 Karakter // Wajib English)</label>
+                <span class="char-counter" id="titleCharCount">0 / 70</span>
+              </div>
+              <input type="text" id="inputTitle" class="form-input-text font-mono" maxlength="70" placeholder="e.g. Minimalist concrete architecture in morning sunlight">
+            </div>
+
+            <!-- Description Field -->
+            <div class="form-field">
+              <div class="form-label-row">
+                <label for="inputDesc" class="form-label">Description (1–2 Kalimat Konsep & Komposisi)</label>
+                <span class="char-counter" id="descCharCount">0 chars</span>
+              </div>
+              <textarea id="inputDesc" class="form-textarea" placeholder="e.g. Modern architectural facade with geometric shadows and clean lines under bright natural light. Suitable for design and urban themes."></textarea>
+            </div>
+
+            <!-- Keywords / Tags Manager -->
+            <div class="form-field">
+              <div class="form-label-row">
+                <label class="form-label">Keywords / Tags (<span id="tagsCount">0</span> / 49 // 10 Teratas Prioritas)</label>
+                <span class="char-counter" id="tagsStatusLabel">English Stock Tags</span>
+              </div>
+              
+              <div class="tag-input-row">
+                <input type="text" id="tagInput" class="form-input-text font-mono" placeholder="Type tag and press Enter or comma...">
+                <button id="btnAddTag" class="btn btn-secondary btn-sm">+ Add</button>
+              </div>
+
+              <div class="tags-box" id="tagsChipsBox">
+                <!-- Tag chips injected by JS -->
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3-LAYER METADATA SYNCHRONIZATION INSPECTOR -->
+        <div class="sync-inspector-section" id="syncInspector" style="display: none;">
+          <div class="sync-header">
+            <span class="section-title">3-Layer Binary Metadata Synchronization Inspector</span>
+            <span class="badge" style="background:#ecfdf5; color:#059669; border-color:#a7f3d0;">ZERO-DEPENDENCY BINARY SYNC</span>
+          </div>
+
+          <div class="sync-layers-grid">
+            <!-- Layer 1: IPTC IIM -->
+            <div class="layer-card">
+              <div class="layer-card-title">
+                <span>1. IPTC IIM (APP13)</span>
+                <span class="badge">0x0404 8BIM</span>
+              </div>
+              <table class="layer-table">
+                <tr>
+                  <td class="field-key">2:05 Title</td>
+                  <td class="field-val" id="iptcTitleVal">-</td>
+                </tr>
+                <tr>
+                  <td class="field-key">2:78 Caption</td>
+                  <td class="field-val" id="iptcCaptionVal">-</td>
+                </tr>
+                <tr>
+                  <td class="field-key">2:19 Keywords</td>
+                  <td class="field-val" id="iptcKeywordsVal">-</td>
+                </tr>
+                <tr>
+                  <td class="field-key">1:5A Coded Char</td>
+                  <td class="field-val font-mono">UTF-8 (ESC % G)</td>
+                </tr>
+              </table>
+            </div>
+
+            <!-- Layer 2: EXIF IFD0 -->
+            <div class="layer-card">
+              <div class="layer-card-title">
+                <span>2. EXIF IFD0</span>
+                <span class="badge">TIFF 6.0</span>
+              </div>
+              <table class="layer-table">
+                <tr>
+                  <td class="field-key">0x010E Description</td>
+                  <td class="field-val" id="exifDescVal">-</td>
+                </tr>
+                <tr>
+                  <td class="field-key">0x9C9B XPTitle</td>
+                  <td class="field-val" id="exifXPTitleVal">-</td>
+                </tr>
+                <tr>
+                  <td class="field-key">0x9C9E XPKeywords</td>
+                  <td class="field-val" id="exifXPKeywordsVal">-</td>
+                </tr>
+                <tr>
+                  <td class="field-key">Thumbnail IFD1</td>
+                  <td class="field-val font-mono">Preserved (0x0201)</td>
+                </tr>
+              </table>
+            </div>
+
+            <!-- Layer 3: Adobe XMP Dublin Core -->
+            <div class="layer-card">
+              <div class="layer-card-title">
+                <span>3. Adobe XMP</span>
+                <span class="badge">Dublin Core</span>
+              </div>
+              <table class="layer-table">
+                <tr>
+                  <td class="field-key">dc:title</td>
+                  <td class="field-val" id="xmpTitleVal">-</td>
+                </tr>
+                <tr>
+                  <td class="field-key">dc:description</td>
+                  <td class="field-val" id="xmpDescVal">-</td>
+                </tr>
+                <tr>
+                  <td class="field-key">dc:subject (rdf:Bag)</td>
+                  <td class="field-val" id="xmpSubjectVal">-</td>
+                </tr>
+                <tr>
+                  <td class="field-key">Packet Header</td>
+                  <td class="field-val font-mono">&lt;?xpacket begin="&#xfeff;"?&gt;</td>
+                </tr>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Empty State When No File Selected -->
+        <div id="emptyState" style="text-align: center; padding: 60px 20px; color: var(--text-muted);">
+          <div class="font-mono" style="font-size: 24px; margin-bottom: 8px;">[ NO FILE SELECTED ]</div>
+          <p>Pilih salah satu file foto dari antrian di sebelah kiri atau klik <strong>Scan photo/</strong> untuk memulai.</p>
+        </div>
+      </section>
+
+      <!-- RIGHT PANEL: TOKEN COST AUDIT & ACTIVITY STREAM -->
+      <aside class="panel-right">
+        <div class="panel-header">
+          <span class="section-title">Token & Cost Audit</span>
+        </div>
+
+        <div class="cost-card">
+          <div class="cost-title">Session Cost Breakdown</div>
+          <div class="cost-stats-grid">
+            <div class="cost-metric-box">
+              <span class="metric-label">Vision Tokens</span>
+              <span class="metric-value font-mono" id="auditVisionTokens">0</span>
+            </div>
+            <div class="cost-metric-box">
+              <span class="metric-label">DeepSeek SEO Tokens</span>
+              <span class="metric-value font-mono" id="auditSeoTokens">0</span>
+            </div>
+            <div class="cost-metric-box">
+              <span class="metric-label">Cache Hit Rate</span>
+              <span class="metric-value font-mono" id="auditCacheRate">100%</span>
+            </div>
+            <div class="cost-metric-box">
+              <span class="metric-label">Saved Token Cost</span>
+              <span class="metric-value font-mono" id="auditSavedCost" style="color: var(--status-success);">$0.0000</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="log-stream-section">
+          <div class="log-stream-header">
+            <span>Activity Stream // imgmeta.log</span>
+          </div>
+          <div class="log-terminal" id="logTerminal">
+            <div class="log-line"><span class="log-time">[INIT]</span><span class="log-info">System initialized on port :3030</span></div>
+            <div class="log-line"><span class="log-time">[INIT]</span><span class="log-info">Ready to scan ./photo directory</span></div>
+          </div>
+        </div>
+      </aside>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
