@@ -119,6 +119,7 @@
   function init() {
     loadFilesFromApi();
     bindEvents();
+    startLiveLogStream();
     appendLog('SYS', 'IMGMETA-SEO Web UI initialized. Database SQLite ready.');
   }
 
@@ -639,8 +640,53 @@
   }
 
   // ──────────────────────────────────────────────────────────
-  // LOG TERMINAL
+  // LOG TERMINAL & REAL-TIME STREAMING
   // ──────────────────────────────────────────────────────────
+  let lastLogId = 0;
+
+  function startLiveLogStream() {
+    setInterval(async () => {
+      try {
+        const res = await fetch(`/api/logs?since=${lastLogId}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data.logs) && data.logs.length > 0) {
+            data.logs.forEach(log => {
+              if (log.id > lastLogId) {
+                lastLogId = log.id;
+                renderServerLog(log);
+              }
+            });
+          }
+        }
+      } catch (e) {
+        // Silent catch for log polling
+      }
+    }, 1200);
+  }
+
+  function renderServerLog(log) {
+    if (!elements.logTerminal) return;
+    const div = document.createElement('div');
+    div.className = 'log-line';
+    
+    let opColorClass = 'log-info';
+    if (log.level === 'SUCCESS' || log.level === 'INJECT' || log.level === 'RENAME') opColorClass = 'log-success';
+    if (log.level === 'ERROR' || log.level === 'WARN') opColorClass = 'log-error';
+
+    const timeShort = log.timestamp ? log.timestamp.split('T')[1].slice(0, 8) : new Date().toTimeString().split(' ')[0];
+    const filePrefix = log.file ? ` [${log.file}] — ` : ' ';
+
+    div.innerHTML = `<span class="log-time">[${timeShort}]</span> <span class="log-op ${opColorClass}">[${log.level}] ${log.category}:</span> <span>${filePrefix}${log.message}</span>`;
+    elements.logTerminal.appendChild(div);
+
+    // Limit DOM log lines to 150 items to keep UI fast
+    while (elements.logTerminal.children.length > 150) {
+      elements.logTerminal.removeChild(elements.logTerminal.firstChild);
+    }
+    elements.logTerminal.scrollTop = elements.logTerminal.scrollHeight;
+  }
+
   function appendLog(op, msg) {
     const time = new Date().toTimeString().split(' ')[0];
     const div = document.createElement('div');
@@ -650,7 +696,7 @@
     if (op === 'SUCCESS' || op === 'INJECT') opColorClass = 'log-success';
     if (op === 'ERR' || op === 'WARN') opColorClass = 'log-error';
 
-    div.innerHTML = `<span class="log-time">[${time}]</span><span class="log-op [${opColorClass}]">${op}:</span> <span>${msg}</span>`;
+    div.innerHTML = `<span class="log-time">[${time}]</span> <span class="log-op ${opColorClass}">${op}:</span> <span>${msg}</span>`;
     elements.logTerminal.appendChild(div);
     elements.logTerminal.scrollTop = elements.logTerminal.scrollHeight;
   }

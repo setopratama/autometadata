@@ -5,10 +5,13 @@
 [![Zero Dependency](https://img.shields.io/badge/Dependencies-Zero%20External-black?style=flat)](https://nodejs.org/)
 [![Database](https://img.shields.io/badge/SQLite-WAL%20Mode-003B57?style=flat&logo=sqlite)](https://nodejs.org/api/sqlite.html)
 [![Tests](https://img.shields.io/badge/Tests-8%2F8%20Passing-brightgreen?style=flat)](#-pengujian-internal-selftest)
+[![Donate PayPal](https://img.shields.io/badge/Donate-PayPal-00457C?style=flat&logo=paypal)](https://www.paypal.com/paypalme/setopratama)
 
 **IMGMETA-SEO** adalah CLI dan Web UI berkinerja tinggi tanpa dependensi eksternal (*zero external runtime dependencies*) untuk otomatisasi metadata foto microstock. Didesain khusus untuk kontributor di **Adobe Stock, Shutterstock, Freepik, dan Getty Images**.
 
 Tool ini menggabungkan parser biner murni dengan arsitektur **AI 2-Tahap Hemat Token** (AI Vision + DeepSeek 4 Flash) untuk menghasilkan Judul, Deskripsi, dan Kata Kunci berperingkat tinggi, lalu menyuntikkannya langsung ke 3 lapisan metadata file (**IPTC IIM + EXIF IFD0 + Adobe XMP Dublin Core**) secara sinkron.
+
+![IMGMETA-SEO Web UI Console](docs/assets/2026-09-21.jpg)
 
 ---
 

@@ -8,7 +8,7 @@ if (typeof process.loadEnvFile === 'function') {
     process.loadEnvFile(path.resolve(process.cwd(), '.env'));
   } catch (e) {}
 }
-import { scanDirectory, formatBytes, getFileSha256, logFailure } from './utils.js';
+import { scanDirectory, formatBytes, getFileSha256, logFailure, writeLog, getRecentLogs } from './utils.js';
 import { readFileMeta, applyEdits } from './meta.js';
 import { getCachedAiResult, saveAiResultToCache } from './cache.js';
 import { analyzeImageVision } from './vision.js';
@@ -147,6 +147,18 @@ export function startServer(port = 3030) {
         }
 
         return sendJson(res, 200, { files: filesList });
+      } catch (err) {
+        return sendJson(res, 500, { error: err.message });
+      }
+    }
+
+    // 1.5 GET /api/logs (Fetch recent activity logs for Web UI stream)
+    if (method === 'GET' && pathname === '/api/logs') {
+      try {
+        const sinceId = parseInt(urlObj.searchParams.get('since') || '0', 10);
+        const logs = getRecentLogs(100);
+        const filteredLogs = sinceId > 0 ? logs.filter(l => l.id > sinceId) : logs;
+        return sendJson(res, 200, { logs: filteredLogs });
       } catch (err) {
         return sendJson(res, 500, { error: err.message });
       }

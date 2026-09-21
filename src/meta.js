@@ -6,7 +6,7 @@ import { parseJpeg, injectJpegMetadata } from './jpeg.js';
 import { parsePng, injectPngMetadata } from './png.js';
 import { parseSvg, injectSvgMetadata } from './svg.js';
 import { parseEps, injectEpsMetadata } from './eps.js';
-import { sha256, getFileSha256, formatBytes, logFailure, sanitizeFilename } from './utils.js';
+import { sha256, getFileSha256, formatBytes, logFailure, sanitizeFilename, writeLog } from './utils.js';
 
 export function getFileFormat(filePath) {
   const ext = path.extname(filePath).toLowerCase();
@@ -68,6 +68,8 @@ export function applyEdits(filePath, edits = {}, options = {}) {
     const format = getFileFormat(filePath);
     let outputBuffer = null;
 
+    writeLog('INJECT', 'META', `Serializing 3-layer sync (IPTC 8BIM UTF-8 + EXIF IFD0/XP + XMP Dublin Core) for ${format.toUpperCase()}`, filePath);
+
     if (format === 'jpg') {
       outputBuffer = injectJpegMetadata(buffer, edits);
     } else if (format === 'png') {
@@ -87,6 +89,7 @@ export function applyEdits(filePath, edits = {}, options = {}) {
 
     // Write updated binary to file
     fs.writeFileSync(filePath, outputBuffer);
+    writeLog('SUCCESS', 'META', `Binary metadata successfully injected into file`, filePath);
 
     let finalFilePath = filePath;
     let renamed = false;
@@ -102,6 +105,7 @@ export function applyEdits(filePath, edits = {}, options = {}) {
         fs.renameSync(filePath, newFilePath);
         finalFilePath = newFilePath;
         renamed = true;
+        writeLog('RENAME', 'META', `Renamed file based on Title -> "${newFileName}"`, finalFilePath);
       }
     }
 

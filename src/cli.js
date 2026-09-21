@@ -2,7 +2,7 @@
 
 import path from 'node:path';
 import fs from 'node:fs';
-import { scanDirectory, info, success, warn, err, colors } from './utils.js';
+import { scanDirectory, info, success, warn, err, colors, writeLog } from './utils.js';
 import { readFileMeta, applyEdits } from './meta.js';
 import { getCachedAiResult, saveAiResultToCache } from './cache.js';
 import { saveStagedFile, markFileInjected } from './db.js';
@@ -86,6 +86,7 @@ async function handleRead(targetPattern) {
     return;
   }
 
+  writeLog('INFO', 'CLI', `Reading metadata for ${files.length} files in ${targetDir}`);
   info(`Membaca metadata dari ${files.length} file:\n`);
 
   for (const fp of files) {
@@ -111,6 +112,7 @@ async function handleScan(targetPattern, options = {}) {
     return;
   }
 
+  writeLog('INFO', 'CLI', `Starting CLI scan process for ${files.length} file(s) [Apply: ${options.apply}, Rename: ${options.rename}]`);
   info(`Memulai proses scan untuk ${files.length} file...`);
   if (!options.apply) {
     info(`[DRY-RUN MODE] Metadata hanya ditampilkan. Tambahkan flag ${colors.bold}--apply${colors.reset} untuk menulis biner.\n`);
@@ -125,6 +127,7 @@ async function handleScan(targetPattern, options = {}) {
     const fileName = path.basename(fp);
 
     console.log(`\n[${i + 1}/${files.length}] ${colors.bold}${fileName}${colors.reset}`);
+    writeLog('INFO', 'CLI', `Processing file [${i + 1}/${files.length}]`, fileName);
 
     try {
       const meta = readFileMeta(fp);
@@ -200,6 +203,7 @@ async function handleScan(targetPattern, options = {}) {
     }
   }
 
+  writeLog('SUCCESS', 'CLI', `CLI scan process finished for ${files.length} file(s). Total AI cost: $${totalCost.toFixed(4)}`);
   console.log(`\n${colors.bold}── Ringkasan Batch ──${colors.reset}`);
   console.log(`Total File: ${files.length}`);
   console.log(`Total Token AI: ${(totalVisionTokens + totalSeoTokens).toLocaleString()}`);

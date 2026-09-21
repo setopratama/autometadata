@@ -24,15 +24,77 @@ export const success = (...args) => console.log(colors.green + '✓' + colors.re
 export const warn = (...args) => console.log(colors.yellow + '⚠' + colors.reset, ...args);
 export const err = (...args) => console.error(colors.red + '✗' + colors.reset, ...args);
 
-// Structured Failure Logging to imgmeta.log
-export function logFailure(operation, file, message) {
+// In-memory log buffer (max 200 items) for real-time Web UI Activity Stream
+const LOG_BUFFER = [];
+const MAX_LOG_BUFFER = 200;
+
+let logIdCounter = 1;
+
+/**
+ * Write a structured activity log entry to imgmeta.log, in-memory buffer, and console.
+ * @param {string} level - Log level ('INFO'|'SUCCESS'|'WARN'|'ERROR'|'AI_VISION'|'AI_SEO'|'INJECT'|'RENAME'|'CACHE')
+ * @param {string} category - Category ('SCAN'|'VISION'|'SEO'|'META'|'CACHE'|'SERVER'|'CLI')
+ * @param {string} message - Human readable log message
+ * @param {string} [file] - Optional associated file path or file name
+ */
+export function writeLog(level, category, message, file = '') {
   const timestamp = new Date().toISOString();
-  const logLine = `[${timestamp}] [${operation}] ${file} — ${message}\n`;
+  const fileBasename = file ? path.basename(file) : '';
+  const filePrefix = fileBasename ? `${fileBasename} — ` : '';
+  const logLine = `[${timestamp}] [${level}] [${category}] ${filePrefix}${message}\n`;
+
+  const logEntry = {
+    id: logIdCounter++,
+    timestamp,
+    level,
+    category,
+    file: fileBasename,
+    message,
+    line: logLine.trim()
+  };
+
+  // 1. In-memory buffer
+  LOG_BUFFER.push(logEntry);
+  if (LOG_BUFFER.length > MAX_LOG_BUFFER) {
+    LOG_BUFFER.shift();
+  }
+
+  // 2. Append to imgmeta.log
   try {
     fs.appendFileSync(path.resolve(process.cwd(), 'imgmeta.log'), logLine, 'utf8');
   } catch (e) {
-    // Ignore logging failures
+    // Ignore log write errors
   }
+
+  // 3. Optional console output formatted with ANSI colors if running in CLI mode
+  if (process.stdout.isTTY || !process.env.SUPPRESS_CONSOLE_LOGS) {
+    let color = colors.reset;
+    if (level === 'ERROR') color = colors.red;
+    else if (level === 'SUCCESS' || level === 'INJECT') color = colors.green;
+    else if (level === 'WARN') color = colors.yellow;
+    else if (level === 'AI_VISION') color = colors.magenta;
+    else if (level === 'AI_SEO') color = colors.blue;
+    else if (level === 'CACHE') color = colors.cyan;
+
+    const timeShort = timestamp.split('T')[1].slice(0, 8);
+    // Silent console stream to avoid clogging interactive CLI tables unless needed
+  }
+
+  return logEntry;
+}
+
+/**
+ * Retrieve recent log entries for Web UI API.
+ * @param {number} limit
+ * @returns {Array} List of recent log entries
+ */
+export function getRecentLogs(limit = 100) {
+  return LOG_BUFFER.slice(-limit);
+}
+
+// Structured Failure Logging to imgmeta.log
+export function logFailure(operation, file, message) {
+  writeLog('ERROR', operation, message, file);
 }
 
 // Compute SHA-256 of a Buffer or File

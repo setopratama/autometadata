@@ -1,6 +1,6 @@
 // Stage 2: Elite Microstock SEO & Keywording Algorithm Specialist
 
-import { logFailure } from './utils.js';
+import { logFailure, writeLog } from './utils.js';
 
 export const TITLE_MAX_LEN = 70;
 export const KEYWORDS_MIN = 25;
@@ -82,10 +82,13 @@ export function validateSeoOutput(raw) {
     description = `${title}. Commercial high-quality stock asset ready for marketing, creative designs, and editorial publications.`;
   }
 
+  const finalKeywords = cleanKeywords.slice(0, KEYWORDS_MAX);
+  writeLog('SEO', 'VALIDATE', `Title (${title.length}/${TITLE_MAX_LEN} chars): "${title}" | Keywords: ${finalKeywords.length} tags`);
+
   return {
     title,
     description,
-    keywords: cleanKeywords.slice(0, KEYWORDS_MAX)
+    keywords: finalKeywords
   };
 }
 
@@ -95,6 +98,7 @@ export async function refineSeoMetadata(visualDescription) {
   const model = process.env.SEO_MODEL || 'deepseek/deepseek-v4-flash-0731';
 
   if (!apiKey) {
+    writeLog('ERROR', 'SEO', 'OPENROUTER_API_KEY is not configured in .env');
     throw new Error('OPENROUTER_API_KEY is not configured in .env');
   }
 
@@ -163,6 +167,8 @@ Respond ONLY with valid JSON:
     temperature: 0.1
   };
 
+  writeLog('AI_SEO', 'SEO', `Refining visual metadata via DeepSeek SEO model [Model: ${model}]...`);
+
   try {
     const response = await fetch(`${baseUrl}/chat/completions`, {
       method: 'POST',
@@ -214,6 +220,8 @@ Respond ONLY with valid JSON:
 
     const validated = validateSeoOutput(parsedRaw);
     const usage = data.usage || { prompt_tokens: 350, completion_tokens: 200, total_tokens: 550 };
+
+    writeLog('SUCCESS', 'SEO', `Stage 2 DeepSeek SEO completed successfully (${usage.total_tokens} tokens used)`);
 
     return {
       seo: validated,

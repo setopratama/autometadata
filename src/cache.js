@@ -1,5 +1,5 @@
 import { getDb } from './db.js';
-import { sha256 } from './utils.js';
+import { sha256, writeLog } from './utils.js';
 
 export const PROMPT_VERSION = 'v2.1.0';
 
@@ -14,6 +14,8 @@ export function getCachedAiResult(imageHash, promptVersion = PROMPT_VERSION) {
     const stmt = db.prepare('SELECT * FROM ai_cache WHERE hash_key = ?');
     const row = stmt.get(key);
     if (!row) return null;
+
+    writeLog('CACHE', 'CACHE_HIT', `SHA-256 match found in SQLite database (100% token cost saved)`, imageHash.slice(0, 12));
 
     return {
       hashKey: row.hash_key,

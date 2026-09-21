@@ -1,6 +1,6 @@
 // Stage 1: AI Vision Analysis with 4-Pillar Visual Extraction & In-Memory Optimization
 
-import { logFailure } from './utils.js';
+import { logFailure, writeLog } from './utils.js';
 
 export function downscaleImageBufferInMemory(imageBuffer, targetMaxDimension = 384) {
   // Pure in-memory buffer pass-through
@@ -13,10 +13,12 @@ export async function analyzeImageVision(imageBuffer, options = {}) {
   const model = process.env.VISION_MODEL || 'openai/gpt-4o-mini';
 
   if (!apiKey) {
+    writeLog('ERROR', 'VISION', 'OPENROUTER_API_KEY is not configured in .env');
     throw new Error('OPENROUTER_API_KEY is not configured in .env');
   }
 
   // 1. In-Memory Buffer preparation
+  writeLog('AI_VISION', 'VISION', `Optimizing image buffer in-memory (downscale <= 512px)...`);
   const optimizedBuffer = downscaleImageBufferInMemory(imageBuffer, 384);
   const base64Data = optimizedBuffer.toString('base64');
   const mimeType = options.mimeType || 'image/jpeg';
@@ -67,6 +69,8 @@ Provide a comprehensive, rich, and highly descriptive multi-paragraph technical 
     temperature: 0.2
   };
 
+  writeLog('AI_VISION', 'VISION', `Sending visual payload to AI Vision API [Model: ${model}]...`);
+
   try {
     const response = await fetch(`${baseUrl}/chat/completions`, {
       method: 'POST',
@@ -87,6 +91,8 @@ Provide a comprehensive, rich, and highly descriptive multi-paragraph technical 
     const data = await response.json();
     const visualDescription = data.choices?.[0]?.message?.content?.trim() || '';
     const usage = data.usage || { prompt_tokens: 2000, completion_tokens: 100, total_tokens: 2100 };
+
+    writeLog('SUCCESS', 'VISION', `Stage 1 Vision completed successfully (${usage.total_tokens} tokens used)`);
 
     return {
       visualDescription,
