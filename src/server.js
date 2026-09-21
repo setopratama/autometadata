@@ -388,12 +388,15 @@ export function startServer(port = 3030) {
           // Perbarui status menjadi 'injected' di SQLite
           markFileInjected(filePath, applyResult.filePath, edits);
 
+          const newName = path.basename(applyResult.filePath);
           results.push({
             oldFileName: fileName,
-            newFileName: path.basename(applyResult.filePath),
+            newFileName: newName,
             filePath: applyResult.filePath,
             success: true,
-            renamed: applyResult.renamed
+            renamed: applyResult.renamed,
+            thumbnailUrl: `/api/thumbnail/${encodeURIComponent(newName)}?t=${Date.now()}`,
+            fullImageUrl: `/api/photo/${encodeURIComponent(newName)}?t=${Date.now()}`
           });
         } catch (err) {
           logFailure('INJECT_SELECTED', fileName, err.message);
@@ -435,7 +438,12 @@ export function startServer(port = 3030) {
         // Update database history
         markFileInjected(filePath, result.filePath, edits);
 
-        return sendJson(res, 200, result);
+        const newName = path.basename(result.filePath);
+        return sendJson(res, 200, {
+          ...result,
+          thumbnailUrl: `/api/thumbnail/${encodeURIComponent(newName)}?t=${Date.now()}`,
+          fullImageUrl: `/api/photo/${encodeURIComponent(newName)}?t=${Date.now()}`
+        });
       } catch (err) {
         logFailure('SERVER_APPLY', fileName, err.message);
         const isRenameErr = err.message.toLowerCase().includes('rename') || err.message.toLowerCase().includes('ebusy') || err.message.toLowerCase().includes('eperm');

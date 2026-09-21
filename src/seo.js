@@ -2,7 +2,7 @@
 
 import { logFailure, writeLog } from './utils.js';
 
-export const TITLE_MAX_LEN = 70;
+export const TITLE_MAX_LEN = 200;
 export const KEYWORDS_MIN = 25;
 export const KEYWORDS_TARGET = 40;
 export const KEYWORDS_MAX = 49;
@@ -24,11 +24,11 @@ export function validateSeoOutput(raw) {
   // 1. Remove leading filler words from title
   title = title.replace(/^(a|an|the|photo of|image of|close up of)\s+/i, '').trim();
 
-  // 2. Clamp title to max 70 characters cleanly
+  // 2. Clamp title to max 200 characters cleanly
   if (title.length > TITLE_MAX_LEN) {
     const truncated = title.slice(0, TITLE_MAX_LEN);
     const lastSpace = truncated.lastIndexOf(' ');
-    title = (lastSpace > 30 ? truncated.slice(0, lastSpace) : truncated).trim();
+    title = (lastSpace > 100 ? truncated.slice(0, lastSpace) : truncated).trim();
   }
 
   // 3. Validate & Sanitize Keywords (Max 2 words per tag, lowercase, no trademarks)
@@ -111,11 +111,12 @@ Your mission is to craft maximum-visibility, high-converting metadata for stock 
 ALGORITHMIC METADATA RULES:
 ==============================================================================
 
-1. STOCK TITLE (Maximum 70 Characters - Strict):
-   - FRONT-LOADED FORMULA: [Top Searched Root Noun] + [Key Commercial Modifier] + [Composition / Background Context]
-   - Example: "Roasted Coffee Beans Macro Texture in Morning Sunlight" (58 chars)
+1. STOCK TITLE (Up to 200 Characters - Detailed & High-SEO Conversion):
+   - EXPANDED FORMULA: [Primary Focal Object] + [Micro-Textures & Materials] + [Precise Camera Perspective / Shot Type (Top-Down Flat Lay, Macro Close-Up, Low-Angle, Isometric)] + [Lighting & Color Palette] + [Commercial Concept & Copy Space Context]
+   - Example: "Freshly Roasted Dark Espresso Coffee Beans Macro Texture Shot with Warm Ambient Lighting and Natural Copy Space for Commercial Gourmet Cafe Advertising" (164 chars)
+   - Rich, highly descriptive English title (target 100 to 200 characters for maximum search indexing power).
+   - Include specific visual details: camera perspective/angle, lighting setup, surface textures, focal elements, and commercial intent.
    - Zero filler words: Never start with "A", "An", "The", "Photo of", "Image of".
-   - High commercial intent, descriptive, natural English.
 
 2. DESCRIPTION (1-2 Engaging Sentences):
    - Highlight composition, mood, and practical commercial copy space for designers and marketers.

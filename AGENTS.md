@@ -21,7 +21,8 @@ CLI Node.js & Web UI tanpa dependensi eksternal untuk memproses metadata foto mi
 
 > [!WARNING]
 > **Aturan Git:**
-> **JANGAN** melakukan `git add`, `git commit`, maupun `git push` tanpa izin atau instruksi langsung dari owner.
+> 1. **JANGAN** melakukan `git add`, `git commit`, maupun `git push` tanpa izin atau instruksi langsung dari owner.
+> 2. **JANGAN melakukan push sedikit-sedikit (mikro-push):** Kumpulkan seluruh perubahan kode dalam satu fitur/tugas yang utuh dan teruji terlebih dahulu. Eksekusi `git commit`/`push` HANYA dilakukan jika diminta secara eksplisit oleh owner.
 
 ---
 
@@ -164,8 +165,8 @@ $$\text{cli.js} \longrightarrow \text{vision.js} \longrightarrow \text{seo.js} \
 ## 🏷️ Aturan SEO Stock Image (WAJIB)
 
 - **Title:**
-  - Maksimal **70 karakter**.
-  - Fokus pada elemen visual paling dominan.
+  - Maksimal **200 karakter**.
+  - Menyertakan rincian visual lengkap: objek utama, tekstur mikro, perspektif/sudut kamera (top-down, macro, low-angle), pencahayaan, dan konteks komersial.
   - Hindari istilah teknis kamera/gear (misal: *f/2.8, 50mm, ISO 100*).
   - Tanpa merek dagang, nama seniman, atau nama orang nyata.
 - **Description:**
@@ -177,7 +178,7 @@ $$\text{cli.js} \longrightarrow \text{vision.js} \longrightarrow \text{seo.js} \
   - **Keselarasan:** Kata kunci inti pada *Title* wajib ada di dalam 10 keyword pertama.
   - Gunakan satu bahasa konsisten sesuai profil akun kontributor.
 - **Validasi Ketat (`validateSeoOutput()`):**
-  - Title > 70 karakter $\rightarrow$ potong / tolak.
+  - Title > 200 karakter $\rightarrow$ potong / tolak.
   - Keyword mengandung merek dagang (*Canon, Porsche, iPad, Apple, Nike*, dll.) $\rightarrow$ hapus otomatis.
   - Jumlah keyword < 10 atau > 49 $\rightarrow$ sesuaikan secara proporsional.
   - *Jangan pernah mempercayai 100% output mentah LLM tanpa validasi.*
@@ -188,7 +189,7 @@ $$\text{cli.js} \longrightarrow \text{vision.js} \longrightarrow \text{seo.js} \
 
 - **ESM Standard:** Gunakan format murni ESM (`import`/`export`) dengan prefix `node:` (contoh: `import fs from "node:fs"`).
 - **Bahasa & Komentar:** Gunakan Bahasa Indonesia yang ringkas dan menjelaskan alasan (*"mengapa"*).
-- **Pemisahan AI:** Semua interaksi AI wajib melalui [src/vision.js](file:///d:/AUTOMETA/src/vision.js) dan [src/seo.js](file:///d:/AUTOMETA/src/seo.js). Dilarang memanggil endpoint API AI langsung dari `cli.js` atau `server.js`.
+- **Pemisahan AI:** Semua interaksi AI wajib melalui `src/vision.js` dan `src/seo.js`. Dilarang memanggil endpoint API AI langsung dari `cli.js` atau `server.js`.
 - **Penanganan Error Batch:** Bungkus per-file dalam blok `try/catch`. File yang gagal tidak boleh menggagalkan seluruh batch proses.
 - **Logging Kegagalan:** Panggil `utils.logFailure(operation, file, message)` pada blok `catch` untuk mencatat log ke `imgmeta.log` (format: `[tanggal] [operasi] file — pesan`).
 - **Output Konsol:** Gunakan `utils.info`, `utils.err`, dan `utils.warn`. Dukung opsi `--no-color` dan environment variable `NO_COLOR`.
@@ -200,11 +201,11 @@ $$\text{cli.js} \longrightarrow \text{vision.js} \longrightarrow \text{seo.js} \
 
 | Kebutuhan | Tempat & Pola Implementasi |
 | :--- | :--- |
-| **Model AI Vision Baru** | Tambahkan adapter di [src/vision.js](file:///d:/AUTOMETA/src/vision.js) dengan signature seragam `{ analyze(imageBuffer, prompt) -> visualDescription }`. Daftarkan di map `providers`. |
-| **Ubah Aturan SEO** | Ubah/tambah konstanta di [src/seo.js](file:///d:/AUTOMETA/src/seo.js) (`TITLE_MAX_LEN`, `KEYWORD_MAX`, `FORBIDDEN_TERMS`), terapkan di `validateSeoOutput()`, dan update selftest. |
-| **Field Metadata Baru** | Tambah konstanta di parser terkait ([src/iptc.js](file:///d:/AUTOMETA/src/iptc.js) / [src/exif.js](file:///d:/AUTOMETA/src/exif.js)), integrasikan baca/tulis di [src/meta.js](file:///d:/AUTOMETA/src/meta.js), lalu ekspos ke CLI. |
+| **Model AI Vision Baru** | Tambahkan adapter di `src/vision.js` dengan signature seragam `{ analyze(imageBuffer, prompt) -> visualDescription }`. Daftarkan di map `providers`. |
+| **Ubah Aturan SEO** | Ubah/tambah konstanta di `src/seo.js` (`TITLE_MAX_LEN`, `KEYWORD_MAX`, `FORBIDDEN_TERMS`), terapkan di `validateSeoOutput()`, dan update selftest. |
+| **Field Metadata Baru** | Tambah konstanta di parser terkait (`src/iptc.js` / `src/exif.js`), integrasikan baca/tulis di `src/meta.js`, lalu ekspos ke CLI. |
 | **Invalidasi Cache** | Jika prompt atau model berubah, perbarui `promptVersion` agar sistem tidak mengambil cache usang. |
-| **Pengujian Baru** | Tambahkan test case round-trip di [test/selftest.js](file:///d:/AUTOMETA/test/selftest.js). |
+| **Pengujian Baru** | Tambahkan test case round-trip di `test/selftest.js`. |
 | **Changelog** | Catat setiap perubahan arsitektural atau fitur di `CHANGELOG.md`. |
 
 ---
@@ -238,4 +239,4 @@ $$\text{cli.js} \longrightarrow \text{vision.js} \longrightarrow \text{seo.js} \
 9. ❌ **Membuang thumbnail IFD1 saat proses edit metadata**.
 10. ❌ **Menulis tag IFD tidak berurutan atau salah menghitung null-terminator string**.
 11. ❌ **Menambah dependensi npm eksternal** untuk manipulasi biner gambar.
-12. ❌ **Melakukan eksekusi Git** tanpa persetujuan eksplisit dari owner.
+12. ❌ **Melakukan eksekusi Git (commit/push) sedikit-sedikit (mikro-push)** atau tanpa instruksi eksplisit dari owner.

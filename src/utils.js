@@ -114,16 +114,22 @@ export function getFileSha256(filePath) {
   return sha256(buffer);
 }
 
-// Pure Node.js Recursive Glob File Scanner
-export function scanDirectory(dirPath, extensions = ['.jpg', '.jpeg', '.png', '.svg', '.eps']) {
+// Pure Node.js File Scanner (Ignores hidden folders like .tmp and subdirectories by default)
+export function scanDirectory(dirPath, extensions = ['.jpg', '.jpeg', '.png', '.svg', '.eps'], recursive = false) {
   const results = [];
   if (!fs.existsSync(dirPath)) return results;
 
   const entries = fs.readdirSync(dirPath, { withFileTypes: true });
   for (const entry of entries) {
+    // 1. Abaikan file atau folder tersembunyi berawalan titik (misal: .tmp, .git, .cache)
+    if (entry.name.startsWith('.')) continue;
+
     const fullPath = path.join(dirPath, entry.name);
     if (entry.isDirectory()) {
-      results.push(...scanDirectory(fullPath, extensions));
+      // 2. Hanya rekursi jika flag recursive secara eksplisit diset ke true
+      if (recursive) {
+        results.push(...scanDirectory(fullPath, extensions, recursive));
+      }
     } else if (entry.isFile()) {
       const ext = path.extname(entry.name).toLowerCase();
       if (extensions.includes(ext)) {

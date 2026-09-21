@@ -584,8 +584,8 @@
   // ──────────────────────────────────────────────────────────
   function updateTitleCounters() {
     const len = elements.inputTitle.value.length;
-    elements.titleCharCount.textContent = `${len} / 70`;
-    if (len > 70) {
+    elements.titleCharCount.textContent = `${len} / 200`;
+    if (len > 200) {
       elements.titleCharCount.className = 'char-counter limit-warn';
     } else {
       elements.titleCharCount.className = 'char-counter';
@@ -988,11 +988,15 @@
 
         if (data.renamed && data.fileName) {
           file.name = data.fileName;
-          file.thumbnail = `/api/photo/${encodeURIComponent(data.fileName)}`;
+          file.filePath = data.filePath;
+          file.thumbnail = data.thumbnailUrl || `/api/thumbnail/${encodeURIComponent(data.fileName)}?t=${Date.now()}`;
+          file.fullImage = data.fullImageUrl || `/api/photo/${encodeURIComponent(data.fileName)}?t=${Date.now()}`;
           elements.activeFileTitle.textContent = data.fileName;
           elements.activeFilePath.textContent = `photo/${data.fileName}`;
           appendLog('SUCCESS', `Metadata binary written & file renamed to: ${data.fileName}`);
+          generateAndCacheThumbnail(file);
         } else {
+          file.thumbnail = `/api/thumbnail/${encodeURIComponent(file.name)}?t=${Date.now()}`;
           appendLog('SUCCESS', `Synchronized metadata written to file binary: photo/${file.name}`);
         }
 
@@ -1070,7 +1074,12 @@
                 targetFile.errorMessage = null;
                 if (r.renamed && r.newFileName) {
                   targetFile.name = r.newFileName;
-                  targetFile.thumbnail = `/api/photo/${encodeURIComponent(r.newFileName)}`;
+                  targetFile.filePath = r.filePath;
+                  targetFile.thumbnail = r.thumbnailUrl || `/api/thumbnail/${encodeURIComponent(r.newFileName)}?t=${Date.now()}`;
+                  targetFile.fullImage = r.fullImageUrl || `/api/photo/${encodeURIComponent(r.newFileName)}?t=${Date.now()}`;
+                  generateAndCacheThumbnail(targetFile);
+                } else {
+                  targetFile.thumbnail = `/api/thumbnail/${encodeURIComponent(targetFile.name)}?t=${Date.now()}`;
                 }
               } else {
                 targetFile.status = r.errorType === 'ERROR_RENAME' ? 'error_rename' : 'error_inject';

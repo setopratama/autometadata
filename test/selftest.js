@@ -202,13 +202,13 @@ export async function runSelfTests() {
   // ── TEST 7: SEO Output Strict Validation ──
   test('SEO Output Validation & Trademark Filter', () => {
     const rawLLMOutput = {
-      title: 'This is an extremely long title that exceeds seventy characters and should be truncated cleanly by our validator',
+      title: 'Freshly Roasted Dark Espresso Coffee Beans Macro Texture Shot with Warm Ambient Lighting and Natural Copy Space for Commercial Gourmet Cafe Advertising and Design Concept Visual Art Background Texture Presentation',
       description: 'A professional commercial image for marketing.',
       keywords: ['canon', 'nikon', 'architecture', 'modern', 'apple', 'building', 'concrete', 'structure']
     };
 
     const validated = validateSeoOutput(rawLLMOutput);
-    assert(validated.title.length <= 70, 'Title must not exceed 70 chars');
+    assert(validated.title.length <= 200, 'Title must not exceed 200 chars');
     assert(!validated.keywords.includes('canon'), 'Forbidden brand "canon" must be stripped');
     assert(!validated.keywords.includes('nikon'), 'Forbidden brand "nikon" must be stripped');
     assert(!validated.keywords.includes('apple'), 'Forbidden brand "apple" must be stripped');

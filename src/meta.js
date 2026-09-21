@@ -102,10 +102,23 @@ export function applyEdits(filePath, edits = {}, options = {}) {
       const newFilePath = path.join(dirPath, newFileName);
 
       if (newFilePath.toLowerCase() !== filePath.toLowerCase()) {
+        const oldFileName = path.basename(filePath);
         fs.renameSync(filePath, newFilePath);
         finalFilePath = newFilePath;
         renamed = true;
         writeLog('RENAME', 'META', `Renamed file based on Title -> "${newFileName}"`, finalFilePath);
+
+        // Migrasi file thumbnail di .tmp jika ada
+        try {
+          const tmpDir = path.join(dirPath, '.tmp');
+          const oldTmpPath = path.join(tmpDir, oldFileName);
+          const newTmpPath = path.join(tmpDir, newFileName);
+          if (fs.existsSync(oldTmpPath)) {
+            fs.renameSync(oldTmpPath, newTmpPath);
+          }
+        } catch (e) {
+          // Ignore non-blocking thumbnail rename errors
+        }
       }
     }
 

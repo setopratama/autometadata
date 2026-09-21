@@ -72,6 +72,11 @@ function initSchema(db) {
       created_at TEXT DEFAULT (datetime('now'))
     );
   `);
+
+  // 4. Bersihkan entri sampah (.tmp / file tersembunyi) dari riwayat SQLite
+  try {
+    db.exec(`DELETE FROM file_history WHERE file_path LIKE '%/.tmp/%' OR file_name LIKE '.%';`);
+  } catch (e) {}
 }
 
 // ──────────────────────────────────────────────────────────
