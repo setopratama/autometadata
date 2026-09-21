@@ -37,7 +37,7 @@ export function parseJpeg(buffer) {
     // Start of Scan (compressed image data follows until EOI)
     if (marker === 0xDA) {
       const sosLen = buffer.readUInt16BE(offset);
-      const sosHeader = buffer.subarray(offset, offset + sosLen);
+      const sosHeader = buffer.subarray(offset + 2, offset + sosLen);
       const entropyData = buffer.subarray(offset + sosLen);
       segments.push({ marker: 0xDA, data: sosHeader, entropy: entropyData });
       break;
@@ -159,13 +159,7 @@ export function injectJpegMetadata(buffer, edits = {}) {
     if (seg.marker === 0xED && seg.data.subarray(0, 14).toString('ascii') === 'Photoshop 3.0\0') continue;
 
     if (seg.marker === 0xDA) {
-      // SOS header and entropy data
-      const len = 2 + seg.data.length;
-      const h = Buffer.alloc(4);
-      h[0] = 0xFF;
-      h[1] = 0xDA;
-      h.writeUInt16BE(len, 2);
-      outSegments.push(h, seg.data, seg.entropy);
+      outSegments.push(makeSegment(0xDA, seg.data), seg.entropy);
     } else {
       outSegments.push(makeSegment(seg.marker, seg.data));
     }

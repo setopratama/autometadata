@@ -23,6 +23,7 @@ import {
   markFileInjected, 
   deleteStagedFile 
 } from './db.js';
+import { generateShutterstockCsv } from './csv.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -109,6 +110,7 @@ export function startServer(port = 3030) {
               seo = {
                 title: staged.seo_title || metaInfo.metadata.title,
                 description: staged.seo_description || metaInfo.metadata.description,
+                categories: staged.seo_categories?.length ? staged.seo_categories : (metaInfo.metadata.categories || []),
                 keywords: staged.seo_keywords?.length ? staged.seo_keywords : metaInfo.metadata.keywords
               };
               tokensUsed = staged.tokens_used || 0;
@@ -134,8 +136,8 @@ export function startServer(port = 3030) {
               endian: metaInfo.endian,
               hash: metaInfo.imageHash,
               status,
-              thumbnail: `/api/thumbnail/${encodeURIComponent(metaInfo.fileName)}`,
-              fullImage: `/api/photo/${encodeURIComponent(metaInfo.fileName)}`,
+              thumbnail: `/api/thumbnail/${encodeURIComponent(metaInfo.fileName)}?t=${Date.now()}`,
+              fullImage: `/api/photo/${encodeURIComponent(metaInfo.fileName)}?t=${Date.now()}`,
               visionRaw,
               seo,
               tokensUsed,
@@ -166,7 +168,8 @@ export function startServer(port = 3030) {
 
     // 2. GET /api/thumbnail/:fileName (Serve lightweight cached thumbnail from photo/.tmp/)
     if (method === 'GET' && pathname.startsWith('/api/thumbnail/')) {
-      const fileName = decodeURIComponent(pathname.replace('/api/thumbnail/', ''));
+      const rawName = decodeURIComponent(pathname.replace('/api/thumbnail/', ''));
+      const fileName = rawName.replace(/\?.*$/, '');
       const tmpPath = path.join(TMP_DIR, fileName);
       const originalPath = path.join(PHOTO_DIR, fileName);
 
@@ -176,7 +179,7 @@ export function startServer(port = 3030) {
         const contentType = MIME_TYPES[ext] || 'image/jpeg';
         res.writeHead(200, { 
           'Content-Type': contentType,
-          'Cache-Control': 'public, max-age=86400, immutable'
+          'Cache-Control': 'no-cache, must-revalidate'
         });
         return fs.createReadStream(tmpPath).pipe(res);
       }
@@ -187,7 +190,7 @@ export function startServer(port = 3030) {
         const contentType = MIME_TYPES[ext] || 'application/octet-stream';
         res.writeHead(200, { 
           'Content-Type': contentType,
-          'Cache-Control': 'public, max-age=3600'
+          'Cache-Control': 'no-cache, must-revalidate'
         });
         return fs.createReadStream(originalPath).pipe(res);
       }
@@ -198,7 +201,8 @@ export function startServer(port = 3030) {
 
     // 3. POST /api/thumbnail/:fileName (Save client-generated lightweight thumbnail to photo/.tmp/)
     if (method === 'POST' && pathname.startsWith('/api/thumbnail/')) {
-      const fileName = decodeURIComponent(pathname.replace('/api/thumbnail/', ''));
+      const rawName = decodeURIComponent(pathname.replace('/api/thumbnail/', ''));
+      const fileName = rawName.replace(/\?.*$/, '');
       const tmpPath = path.join(TMP_DIR, fileName);
       const body = await parseBody(req);
 
@@ -217,7 +221,8 @@ export function startServer(port = 3030) {
 
     // 4. GET /api/photo/:fileName (Serve local full image for center preview)
     if (method === 'GET' && pathname.startsWith('/api/photo/')) {
-      const fileName = decodeURIComponent(pathname.replace('/api/photo/', ''));
+      const rawName = decodeURIComponent(pathname.replace('/api/photo/', ''));
+      const fileName = rawName.replace(/\?.*$/, '');
       const filePath = path.join(PHOTO_DIR, fileName);
 
       if (!filePath.startsWith(PHOTO_DIR) || !fs.existsSync(filePath)) {
@@ -229,7 +234,7 @@ export function startServer(port = 3030) {
       const contentType = MIME_TYPES[ext] || 'application/octet-stream';
       res.writeHead(200, { 
         'Content-Type': contentType,
-        'Cache-Control': 'public, max-age=3600'
+        'Cache-Control': 'no-cache, must-revalidate'
       });
       return fs.createReadStream(filePath).pipe(res);
     }
@@ -263,6 +268,7 @@ export function startServer(port = 3030) {
             vision_raw: cached.visionRaw,
             seo_title: cached.seo.title,
             seo_description: cached.seo.description,
+            seo_categories: cached.seo.categories,
             seo_keywords: cached.seo.keywords,
             tokens_used: (cached.tokens?.visionTokens || 0) + (cached.tokens?.seoTokens || 0),
             cost_usd: 0.0
@@ -323,6 +329,7 @@ export function startServer(port = 3030) {
           vision_raw: visionResult.visualDescription,
           seo_title: seoResult.seo.title,
           seo_description: seoResult.seo.description,
+          seo_categories: seoResult.seo.categories,
           seo_keywords: seoResult.seo.keywords,
           tokens_used: visionResult.tokensUsed + seoResult.tokensUsed,
           cost_usd: totalCost
@@ -344,14 +351,14 @@ export function startServer(port = 3030) {
     // 4. POST /api/staged/update (Update user manual edits in SQLite staging)
     if (method === 'POST' && pathname === '/api/staged/update') {
       const body = await parseBody(req);
-      const { fileName, title, description, keywords } = body;
+      const { fileName, title, description, categories, keywords } = body;
       const filePath = path.join(PHOTO_DIR, fileName);
 
       if (!fileName) {
         return sendJson(res, 400, { error: 'fileName is required' });
       }
 
-      const success = updateStagedFileMetadata(filePath, { title, description, keywords });
+      const success = updateStagedFileMetadata(filePath, { title, description, categories, keywords });
       return sendJson(res, 200, { success });
     }
 
@@ -379,6 +386,7 @@ export function startServer(port = 3030) {
           const edits = {
             title: item.title,
             description: item.description,
+            categories: item.categories || [],
             keywords: item.keywords || []
           };
 
@@ -428,6 +436,7 @@ export function startServer(port = 3030) {
         const edits = {
           title: body.title,
           description: body.description,
+          categories: body.categories || [],
           keywords: body.keywords || []
         };
 
@@ -475,6 +484,75 @@ export function startServer(port = 3030) {
           totalCostUsd: Number((row.total_cost || 0).toFixed(4))
         });
       } catch (err) {
+        return sendJson(res, 500, { error: err.message });
+      }
+    }
+
+    // 8. GET /api/export/csv & POST /api/export/csv (Export Shutterstock CSV file)
+    if (pathname === '/api/export/csv') {
+      try {
+        let exportFiles = [];
+
+        if (method === 'POST') {
+          const body = await parseBody(req);
+          if (Array.isArray(body.items) && body.items.length > 0) {
+            exportFiles = body.items.map(item => ({
+              fileName: item.fileName || path.basename(item.filePath || ''),
+              title: item.title || item.seo?.title || '',
+              description: item.description || item.seo?.description || item.title || '',
+              categories: item.categories || item.seo?.categories || item.seo_categories || [],
+              keywords: item.keywords || item.seo?.keywords || [],
+              format: item.format || path.extname(item.fileName || '').replace('.', '')
+            }));
+          }
+        }
+
+        if (exportFiles.length === 0) {
+          const filePaths = scanDirectory(PHOTO_DIR);
+          for (const fp of filePaths) {
+            try {
+              const metaInfo = readFileMeta(fp);
+              const staged = getStagedFile(fp);
+              const cached = getCachedAiResult(metaInfo.imageHash);
+
+              let seo = { ...metaInfo.metadata };
+              if (staged) {
+                seo = {
+                  title: staged.seo_title || metaInfo.metadata.title,
+                  description: staged.seo_description || metaInfo.metadata.description,
+                  categories: staged.seo_categories?.length ? staged.seo_categories : (metaInfo.metadata.categories || []),
+                  keywords: staged.seo_keywords?.length ? staged.seo_keywords : metaInfo.metadata.keywords
+                };
+              } else if (cached) {
+                seo = { ...cached.seo };
+              }
+
+              exportFiles.push({
+                fileName: metaInfo.fileName,
+                filePath: fp,
+                format: metaInfo.format,
+                title: seo.title,
+                description: seo.description,
+                categories: seo.categories || [],
+                keywords: seo.keywords
+              });
+            } catch (e) {}
+          }
+        }
+
+        const csvContent = generateShutterstockCsv(exportFiles);
+        const filename = `shutterstock_metadata_${Date.now()}.csv`;
+
+        writeLog('SUCCESS', 'SERVER', `Generated Shutterstock CSV download for ${exportFiles.length} file(s)`);
+
+        res.writeHead(200, {
+          'Content-Type': 'text/csv; charset=utf-8',
+          'Content-Disposition': `attachment; filename="${filename}"`,
+          'Cache-Control': 'no-cache'
+        });
+        return res.end(csvContent);
+      } catch (err) {
+        logFailure('SERVER_CSV_EXPORT', 'photo', err.message);
         return sendJson(res, 500, { error: err.message });
       }
     }

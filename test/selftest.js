@@ -199,16 +199,18 @@ export async function runSelfTests() {
     assert.deepEqual(parsedEps.metadata.keywords, epsEdits.keywords);
   });
 
-  // ── TEST 7: SEO Output Strict Validation ──
+  // ── TEST 7: SEO Output Strict Validation & 26 Categories ──
   test('SEO Output Validation & Trademark Filter', () => {
     const rawLLMOutput = {
       title: 'Freshly Roasted Dark Espresso Coffee Beans Macro Texture Shot with Warm Ambient Lighting and Natural Copy Space for Commercial Gourmet Cafe Advertising and Design Concept Visual Art Background Texture Presentation',
       description: 'A professional commercial image for marketing.',
+      categories: ['Food and drink', 'Backgrounds/Textures', 'Invalid Category'],
       keywords: ['canon', 'nikon', 'architecture', 'modern', 'apple', 'building', 'concrete', 'structure']
     };
 
     const validated = validateSeoOutput(rawLLMOutput);
     assert(validated.title.length <= 200, 'Title must not exceed 200 chars');
+    assert.deepEqual(validated.categories, ['Food and drink', 'Backgrounds/Textures']);
     assert(!validated.keywords.includes('canon'), 'Forbidden brand "canon" must be stripped');
     assert(!validated.keywords.includes('nikon'), 'Forbidden brand "nikon" must be stripped');
     assert(!validated.keywords.includes('apple'), 'Forbidden brand "apple" must be stripped');
@@ -227,6 +229,113 @@ export async function runSelfTests() {
       assert(!cleanName.includes('"'));
       assert(!cleanName.includes('!'));
     });
+  });
+
+  // ── TEST 9: Shutterstock CSV Serializer & RFC 4180 Escaping ──
+  test('Shutterstock CSV Metadata Serializer & RFC 4180 Formatting', () => {
+    import('../src/csv.js').then(({ generateShutterstockCsv, escapeCsvCell }) => {
+      // Cell escaping
+      assert.equal(escapeCsvCell('simple'), 'simple');
+      assert.equal(escapeCsvCell('hello, world'), '"hello, world"');
+      assert.equal(escapeCsvCell('say "hello"'), '"say ""hello"""');
+
+      const files = [
+        {
+          name: 'photo_1.jpg',
+          title: 'Vibrant Tropical Leaf',
+          description: 'A "vibrant" green leaf, with copy space.',
+          categories: ['Nature', 'Backgrounds/Textures'],
+          keywords: ['leaf', 'tropical', 'green, fresh', 'nature'],
+          format: 'jpg'
+        },
+        {
+          name: 'vector_1.svg',
+          title: 'Corporate Infographic Vector',
+          description: 'Clean business graphic presentation chart.',
+          categories: ['Business/Finance'],
+          keywords: ['vector', 'chart', 'business'],
+          format: 'svg'
+        }
+      ];
+
+      const csv = generateShutterstockCsv(files);
+      const lines = csv.split('\r\n');
+
+      assert.equal(lines[0], 'Filename,Description,Keywords,Categories,Illustration,Mature Content,Editorial');
+      assert(lines[1].includes('photo_1.jpg'));
+      assert(lines[1].includes('"A ""vibrant"" green leaf, with copy space."'));
+      assert(lines[1].includes('"leaf, tropical, green, fresh, nature"'));
+      assert(lines[1].includes('"Nature, Backgrounds/Textures"'));
+      assert(lines[1].endsWith(',No,No,No'));
+
+      assert(lines[2].includes('vector_1.svg'));
+      assert(lines[2].includes('Business/Finance'));
+      assert(lines[2].endsWith(',Yes,No,No')); // Illustration = Yes for SVG
+    });
+  });
+
+  // ── TEST 10: 26 Shutterstock Categories Validation & Fallback ──
+  test('26 Official Shutterstock Categories Validation & Smart Fallback', () => {
+    const rawWithCategory = {
+      title: 'Espresso Coffee Beans Macro',
+      description: 'Close up roasted dark coffee beans texture.',
+      categories: ['Food and drink', 'INVALID CATEGORY'],
+      keywords: ['coffee', 'espresso', 'beans']
+    };
+    const validated = validateSeoOutput(rawWithCategory);
+    assert.deepEqual(validated.categories, ['Food and drink']);
+
+    const rawEmptyCategory = {
+      title: 'Vibrant Banana Leaf Against Blue Sky',
+      description: 'Tropical green banana leaf under bright sunlight.',
+      categories: [],
+      keywords: ['leaf', 'banana', 'tropical', 'nature']
+    };
+    const validatedFallback = validateSeoOutput(rawEmptyCategory);
+    assert(validatedFallback.categories.length > 0 && validatedFallback.categories.length <= 2);
+    assert(validatedFallback.categories.includes('Nature') || validatedFallback.categories.includes('Backgrounds/Textures'));
+  });
+
+  // ── TEST 11: Plural & Stemming Keyword Deduplication ──
+  test('Plural & Stemming Keyword Deduplication (Shutterstock Best Practice)', () => {
+    import('../src/seo.js').then(({ getWordStem, hasStemCollision }) => {
+      assert.equal(getWordStem('dogs'), 'dog');
+      assert.equal(getWordStem('doggy'), 'dog');
+      assert.equal(getWordStem('categories'), 'category');
+
+      const cleanList = ['dog', 'cat', 'shiba inu'];
+      assert.equal(hasStemCollision(cleanList, 'dogs'), true);
+      assert.equal(hasStemCollision(cleanList, 'doggy'), true);
+      assert.equal(hasStemCollision(cleanList, 'cats'), true);
+      assert.equal(hasStemCollision(cleanList, 'bird'), false);
+
+      const rawWithPlurals = {
+        title: 'Shiba Inu Dog Playing in Garden',
+        description: 'Happy Shiba Inu dog running outdoors.',
+        keywords: ['dog', 'dogs', 'doggy', 'dogged', 'cat', 'cats', 'shiba inu', 'flower', 'flowers', 'garden']
+      };
+
+      const validated = validateSeoOutput(rawWithPlurals);
+      assert(!validated.keywords.includes('dogs'), 'Plural "dogs" must be deduplicated');
+      assert(!validated.keywords.includes('cats'), 'Plural "cats" must be deduplicated');
+      assert(!validated.keywords.includes('flowers'), 'Plural "flowers" must be deduplicated');
+      assert(validated.keywords.includes('dog'), 'Singular "dog" must be kept');
+      assert(validated.keywords.includes('cat'), 'Singular "cat" must be kept');
+      assert(validated.keywords.includes('flower'), 'Singular "flower" must be kept');
+    });
+  });
+
+  // ── TEST 12: Description Keyword List Detection & Keyword Count Range ──
+  test('Description Keyword List Auto-Fix & 7-50 Keyword Range Enforcement', () => {
+    const rawDotList = {
+      title: 'Minimalist Architecture Facade',
+      description: 'Pattern. Background. Dogs. Flowers. Concrete.',
+      keywords: ['architecture', 'minimalist', 'concrete', 'facade']
+    };
+    const validated = validateSeoOutput(rawDotList);
+    assert(!validated.description.startsWith('Pattern. Background.'), 'Dot keyword list description must be converted to sentence');
+    assert(validated.description.includes('Minimalist Architecture Facade'), 'Fixed description must contain title context');
+    assert(validated.keywords.length >= 7 && validated.keywords.length <= 50, 'Keywords count must be between 7 and 50');
   });
 
   console.log(`\n${passed === total ? colors.green : colors.red}Hasil: ${passed} dari ${total} pengujian lulus.${colors.reset}\n`);

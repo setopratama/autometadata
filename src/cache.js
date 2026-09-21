@@ -1,7 +1,7 @@
 import { getDb } from './db.js';
 import { sha256, writeLog } from './utils.js';
 
-export const PROMPT_VERSION = 'v2.1.0';
+export const PROMPT_VERSION = 'v2.2.0';
 
 export function getCacheKey(imageHash, promptVersion = PROMPT_VERSION) {
   return sha256(`${imageHash}:${promptVersion}`);
@@ -25,6 +25,7 @@ export function getCachedAiResult(imageHash, promptVersion = PROMPT_VERSION) {
       seo: {
         title: row.seo_title,
         description: row.seo_description,
+        categories: JSON.parse(row.seo_categories || '[]'),
         keywords: JSON.parse(row.seo_keywords || '[]')
       },
       tokens: {
@@ -44,11 +45,12 @@ export function saveAiResultToCache(imageHash, visionRaw, seoData, tokens = {}, 
     const db = getDb();
     const key = getCacheKey(imageHash, promptVersion);
     const keywordsJson = JSON.stringify(seoData.keywords || []);
+    const categoriesJson = JSON.stringify(seoData.categories || []);
 
     const stmt = db.prepare(`
       INSERT OR REPLACE INTO ai_cache 
-      (hash_key, image_hash, prompt_version, vision_raw, seo_title, seo_description, seo_keywords, vision_tokens, seo_tokens, est_cost_usd)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      (hash_key, image_hash, prompt_version, vision_raw, seo_title, seo_description, seo_categories, seo_keywords, vision_tokens, seo_tokens, est_cost_usd)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     stmt.run(
@@ -58,6 +60,7 @@ export function saveAiResultToCache(imageHash, visionRaw, seoData, tokens = {}, 
       visionRaw,
       seoData.title,
       seoData.description,
+      categoriesJson,
       keywordsJson,
       tokens.visionTokens || 0,
       tokens.seoTokens || 0,

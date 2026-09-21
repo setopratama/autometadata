@@ -108,16 +108,19 @@ export function applyEdits(filePath, edits = {}, options = {}) {
         renamed = true;
         writeLog('RENAME', 'META', `Renamed file based on Title -> "${newFileName}"`, finalFilePath);
 
-        // Migrasi file thumbnail di .tmp jika ada
+        // Bersihkan cache thumbnail .tmp agar backend langsung menyajikan file original terbaru
         try {
           const tmpDir = path.join(dirPath, '.tmp');
           const oldTmpPath = path.join(tmpDir, oldFileName);
           const newTmpPath = path.join(tmpDir, newFileName);
           if (fs.existsSync(oldTmpPath)) {
-            fs.renameSync(oldTmpPath, newTmpPath);
+            try { fs.unlinkSync(oldTmpPath); } catch (e) {}
+          }
+          if (fs.existsSync(newTmpPath)) {
+            try { fs.unlinkSync(newTmpPath); } catch (e) {}
           }
         } catch (e) {
-          // Ignore non-blocking thumbnail rename errors
+          // Non-blocking thumbnail cleanup
         }
       }
     }

@@ -63,6 +63,9 @@
         <button id="btnInjectSelected" class="btn btn-success btn-sm" title="Injeksi metadata biner ke file yang dicentang">
           <span>💾 Injeksi Terpilih (<span id="selectedCountBadge">0</span>)</span>
         </button>
+        <button id="btnExportCsv" class="btn btn-secondary btn-sm" title="Unduh file CSV metadata resmi Shutterstock Contributor">
+          <span>📥 Export CSV (Shutterstock)</span>
+        </button>
       </div>
     </header>
 
@@ -149,6 +152,9 @@
             <div class="workspace-subtitle" id="activeFilePath">photo/ — No file selected</div>
           </div>
           <div class="header-actions" id="activeFileActions" style="display: none;">
+            <button id="btnCopyAll" class="btn btn-secondary btn-sm" title="Salin seluruh metadata (Title, Description, & Keywords)">
+              <span>📋 Copy All Metadata</span>
+            </button>
             <button id="btnAnalyzeSingle" class="btn btn-secondary btn-sm">
               <span>⚡ AI Vision + SEO</span>
             </button>
@@ -163,7 +169,7 @@
           <!-- Left: Image Preview & Technical Spec -->
           <div class="photo-preview-card">
             <div class="photo-canvas-box" id="imageCanvas">
-              <img id="previewImage" src="" alt="Stock Preview">
+              <img id="previewImage" src="" alt="Stock Preview" loading="eager" decoding="async">
             </div>
 
             <div class="photo-tech-specs">
@@ -202,7 +208,10 @@
             <div class="form-field">
               <div class="form-label-row">
                 <label for="inputTitle" class="form-label">Stock Title (Maks 200 Karakter // Wajib English)</label>
-                <span class="char-counter" id="titleCharCount">0 / 200</span>
+                <div style="display: flex; align-items: center; gap: 6px;">
+                  <button type="button" id="btnCopyTitle" class="btn-copy-mini" title="Salin Stock Title ke Clipboard">📋 Copy</button>
+                  <span class="char-counter" id="titleCharCount">0 / 200</span>
+                </div>
               </div>
               <input type="text" id="inputTitle" class="form-input-text font-mono" maxlength="200" placeholder="e.g. Minimalist concrete architecture with geometric shadows in morning sunlight">
             </div>
@@ -211,16 +220,42 @@
             <div class="form-field">
               <div class="form-label-row">
                 <label for="inputDesc" class="form-label">Description (1–2 Kalimat Konsep & Komposisi)</label>
-                <span class="char-counter" id="descCharCount">0 chars</span>
+                <div style="display: flex; align-items: center; gap: 6px;">
+                  <button type="button" id="btnCopyDesc" class="btn-copy-mini" title="Salin Description ke Clipboard">📋 Copy</button>
+                  <span class="char-counter" id="descCharCount">0 chars</span>
+                </div>
               </div>
               <textarea id="inputDesc" class="form-textarea" placeholder="e.g. Modern architectural facade with geometric shadows and clean lines under bright natural light. Suitable for design and urban themes."></textarea>
+            </div>
+
+            <!-- Categories Selector Field (Shutterstock Official 26 Categories) -->
+            <div class="form-field">
+              <div class="form-label-row">
+                <label class="form-label">Categories (Choose 1–2 Shutterstock Categories)</label>
+                <div style="display: flex; align-items: center; gap: 6px;">
+                  <button type="button" id="btnCopyCategories" class="btn-copy-mini" title="Salin Kategori ke Clipboard">📋 Copy</button>
+                  <span class="char-counter" id="categoriesCount">0 / 2 selected</span>
+                </div>
+              </div>
+              <div class="category-select-row" style="display: flex; gap: 6px; margin-bottom: 6px;">
+                <select id="categorySelect" class="form-input-text font-mono" style="cursor: pointer;">
+                  <option value="">-- Add Category (26 Official Shutterstock Categories) --</option>
+                </select>
+              </div>
+              <div class="categories-chips-box" id="categoriesChipsBox">
+                <!-- Category chips injected by JS -->
+              </div>
             </div>
 
             <!-- Keywords / Tags Manager -->
             <div class="form-field">
               <div class="form-label-row">
                 <label class="form-label">Keywords / Tags (<span id="tagsCount">0</span> / 49 // 10 Teratas Prioritas)</label>
-                <span class="char-counter" id="tagsStatusLabel">English Stock Tags</span>
+                <div style="display: flex; align-items: center; gap: 6px;">
+                  <button type="button" id="btnCopyTop10Tags" class="btn-copy-mini" title="Salin 10 Tag Teratas (Dipisahkan koma)">📋 Top 10</button>
+                  <button type="button" id="btnCopyTags" class="btn-copy-mini" title="Salin Semua Tag (Dipisahkan koma)">📋 Copy Tags</button>
+                  <span class="char-counter" id="tagsStatusLabel">English Stock Tags</span>
+                </div>
               </div>
               
               <div class="tag-input-row">

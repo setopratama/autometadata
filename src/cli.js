@@ -12,6 +12,8 @@ import { calculateCost } from './cost.js';
 import { startServer } from './server.js';
 import { runSelfTests } from '../test/selftest.js';
 
+import { generateShutterstockCsv } from './csv.js';
+
 export async function runCli(argv) {
   const command = argv[0];
 
@@ -46,6 +48,13 @@ export async function runCli(argv) {
     return;
   }
 
+  if (command === 'export') {
+    const targetPattern = argv[1] || 'photo';
+    const outFileArg = argv.find(a => a.startsWith('--out='))?.split('=')[1] || 'shutterstock_metadata.csv';
+    await handleExportCsv(targetPattern, outFileArg);
+    return;
+  }
+
   warn(`Perintah tidak dikenal: "${command}". Jalankan "node index.js --help" untuk bantuan.`);
 }
 
@@ -59,22 +68,61 @@ ${colors.yellow}PENGGUNAAN:${colors.reset}
 ${colors.yellow}PERINTAH UTAMA:${colors.reset}
   ${colors.green}scan <path>${colors.reset}         Scan foto & analisa AI Vision + DeepSeek SEO
   ${colors.green}read <path>${colors.reset}         Baca 3 lapisan metadata yang ada di file
+  ${colors.green}export [path]${colors.reset}       Export metadata seluruh foto ke CSV Shutterstock (--out=...)
   ${colors.green}web [port]${colors.reset}          Jalankan Web UI di localhost (default: 3030)
   ${colors.green}selftest${colors.reset}            Jalankan internal unit test round-trip biner
 
-${colors.yellow}OPSI SCAN:${colors.reset}
+${colors.yellow}OPSI SCAN & EXPORT:${colors.reset}
   ${colors.cyan}--apply${colors.reset}             Injeksi langsung title/desc/tags ke metadata biner file
   ${colors.cyan}--rename${colors.reset}            Otomatis ubah nama file sesuai dengan SEO Title
+  ${colors.cyan}--out=<file.csv>${colors.reset}    Nama file output CSV saat export (default: shutterstock_metadata.csv)
   ${colors.cyan}--no-color${colors.reset}          Matikan format warna ANSI pada konsol
 
 ${colors.yellow}CONTOH:${colors.reset}
   node index.js scan "photo/*.*"
   node index.js scan "photo/*.*" --apply
   node index.js scan "photo/*.*" --apply --rename
+  node index.js export photo --out=shutterstock.csv
   node index.js read "photo/*.*"
   node index.js web 3030
   npm run selftest
 `);
+}
+
+async function handleExportCsv(targetPattern, outFileName) {
+  const targetDir = targetPattern.includes('*') ? path.dirname(targetPattern) : targetPattern;
+  const files = scanDirectory(path.resolve(process.cwd(), targetDir));
+
+  if (files.length === 0) {
+    info(`Tidak ada file foto yang ditemukan di ${targetPattern}`);
+    return;
+  }
+
+  info(`Mengespor metadata dari ${files.length} file ke CSV Shutterstock...`);
+  const filesData = [];
+
+  for (const fp of files) {
+    try {
+      const meta = readFileMeta(fp);
+      filesData.push({
+        fileName: meta.fileName,
+        filePath: fp,
+        format: meta.format,
+        title: meta.metadata.title,
+        description: meta.metadata.description,
+        keywords: meta.metadata.keywords
+      });
+    } catch (e) {
+      err(`Gagal membaca ${path.basename(fp)}: ${e.message}`);
+    }
+  }
+
+  const csvContent = generateShutterstockCsv(filesData);
+  const outPath = path.resolve(process.cwd(), outFileName);
+  fs.writeFileSync(outPath, csvContent, 'utf8');
+
+  writeLog('SUCCESS', 'CLI', `Exported Shutterstock CSV metadata for ${filesData.length} files -> ${outFileName}`);
+  success(`CSV Shutterstock berhasil dibuat: ${colors.bold}${outFileName}${colors.reset} (${filesData.length} file)`);
 }
 
 async function handleRead(targetPattern) {

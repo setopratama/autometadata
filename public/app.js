@@ -27,6 +27,35 @@
     forbiddenKeywords: ['canon', 'nikon', 'sony', 'apple', 'iphone', 'ipad', 'porsche', 'nike', 'adidas', 'gucci', 'bmw', 'mercedes']
   };
 
+  const OFFICIAL_SHUTTERSTOCK_CATEGORIES = [
+    'Abstract',
+    'Animals/Wildlife',
+    'Arts',
+    'Backgrounds/Textures',
+    'Beauty/Fashion',
+    'Buildings/Landmarks',
+    'Business/Finance',
+    'Celebrities',
+    'Education',
+    'Food and drink',
+    'Healthcare/Medical',
+    'Holidays',
+    'Industrial',
+    'Interiors',
+    'Miscellaneous',
+    'Nature',
+    'Objects',
+    'Parks/Outdoor',
+    'People',
+    'Religion',
+    'Science',
+    'Signs/Symbols',
+    'Sports/Recreation',
+    'Technology',
+    'Transportation',
+    'Vintage'
+  ];
+
   // ──────────────────────────────────────────────────────────
   // DOM ELEMENT REFERENCES
   // ──────────────────────────────────────────────────────────
@@ -41,6 +70,7 @@
     btnCancelQueueBar: document.getElementById('btnCancelQueueBar'),
     selectConcurrency: document.getElementById('selectConcurrency'),
     btnInjectSelected: document.getElementById('btnInjectSelected'),
+    btnExportCsv: document.getElementById('btnExportCsv'),
     selectedCountBadge: document.getElementById('selectedCountBadge'),
     chkAutoRename: document.getElementById('chkAutoRename'),
     
@@ -83,16 +113,27 @@
     specHash: document.getElementById('specHash'),
     visionRawText: document.getElementById('visionRawText'),
     
-    // Form inputs
+    // Form inputs & Copy buttons
     inputTitle: document.getElementById('inputTitle'),
     titleCharCount: document.getElementById('titleCharCount'),
+    btnCopyTitle: document.getElementById('btnCopyTitle'),
     inputDesc: document.getElementById('inputDesc'),
     descCharCount: document.getElementById('descCharCount'),
+    btnCopyDesc: document.getElementById('btnCopyDesc'),
     tagInput: document.getElementById('tagInput'),
     btnAddTag: document.getElementById('btnAddTag'),
     tagsChipsBox: document.getElementById('tagsChipsBox'),
     tagsCount: document.getElementById('tagsCount'),
     tagsStatusLabel: document.getElementById('tagsStatusLabel'),
+    btnCopyTags: document.getElementById('btnCopyTags'),
+    btnCopyTop10Tags: document.getElementById('btnCopyTop10Tags'),
+    btnCopyAll: document.getElementById('btnCopyAll'),
+    
+    // Categories
+    categorySelect: document.getElementById('categorySelect'),
+    categoriesChipsBox: document.getElementById('categoriesChipsBox'),
+    categoriesCount: document.getElementById('categoriesCount'),
+    btnCopyCategories: document.getElementById('btnCopyCategories'),
     
     // 3-Layer Sync Inspector values
     iptcTitleVal: document.getElementById('iptcTitleVal'),
@@ -114,9 +155,69 @@
   };
 
   // ──────────────────────────────────────────────────────────
+  // CLIPBOARD COPY HELPER
+  // ──────────────────────────────────────────────────────────
+  async function copyToClipboard(text, btnElement) {
+    if (!text || text.trim().length === 0) {
+      appendLog('WARN', 'Tidak ada teks untuk disalin ke clipboard.');
+      return;
+    }
+
+    let success = false;
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+        success = true;
+      }
+    } catch (err) {}
+
+    if (!success) {
+      try {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+        success = true;
+      } catch (err) {}
+    }
+
+    if (success && btnElement) {
+      const originalText = btnElement.getAttribute('data-original-text') || btnElement.innerHTML;
+      if (!btnElement.hasAttribute('data-original-text')) {
+        btnElement.setAttribute('data-original-text', originalText);
+      }
+      btnElement.classList.add('copied');
+      btnElement.innerHTML = '✓ Copied!';
+      setTimeout(() => {
+        btnElement.classList.remove('copied');
+        btnElement.innerHTML = btnElement.getAttribute('data-original-text');
+      }, 1500);
+      appendLog('COPY', `Copied to clipboard (${text.length} chars)`);
+    } else if (!success) {
+      appendLog('ERR', 'Gagal menyalin teks ke clipboard.');
+    }
+  }
+
+  // ──────────────────────────────────────────────────────────
   // INITIALIZATION & EVENT LISTENERS
   // ──────────────────────────────────────────────────────────
+  function populateCategoriesDropdown() {
+    if (!elements.categorySelect) return;
+    elements.categorySelect.innerHTML = `<option value="">-- Add Category (26 Official Shutterstock Categories) --</option>`;
+    OFFICIAL_SHUTTERSTOCK_CATEGORIES.forEach(cat => {
+      const opt = document.createElement('option');
+      opt.value = cat;
+      opt.textContent = cat;
+      elements.categorySelect.appendChild(opt);
+    });
+  }
+
   function init() {
+    populateCategoriesDropdown();
     loadFilesFromApi();
     bindEvents();
     startLiveLogStream();
@@ -159,11 +260,64 @@
     if (elements.btnCancelQueue) elements.btnCancelQueue.addEventListener('click', handleCancelQueue);
     if (elements.btnCancelQueueBar) elements.btnCancelQueueBar.addEventListener('click', handleCancelQueue);
     elements.btnInjectSelected.addEventListener('click', handleInjectSelected);
+    if (elements.btnExportCsv) elements.btnExportCsv.addEventListener('click', handleExportCsv);
 
     // Active File Action buttons
     elements.btnAnalyzeSingle.addEventListener('click', handleAnalyzeActiveFile);
     elements.btnInjectSingle.addEventListener('click', handleInjectActiveFile);
     elements.btnRetryActiveFile.addEventListener('click', handleRetryActiveFile);
+
+    // Copy Buttons Event Listeners
+    if (elements.btnCopyTitle) {
+      elements.btnCopyTitle.addEventListener('click', () => {
+        copyToClipboard(elements.inputTitle.value, elements.btnCopyTitle);
+      });
+    }
+
+    if (elements.btnCopyDesc) {
+      elements.btnCopyDesc.addEventListener('click', () => {
+        copyToClipboard(elements.inputDesc.value, elements.btnCopyDesc);
+      });
+    }
+
+    if (elements.btnCopyCategories) {
+      elements.btnCopyCategories.addEventListener('click', () => {
+        const file = getActiveFile();
+        const cats = (file?.seo?.categories || []).join(', ');
+        copyToClipboard(cats, elements.btnCopyCategories);
+      });
+    }
+
+    if (elements.btnCopyTags) {
+      elements.btnCopyTags.addEventListener('click', () => {
+        const file = getActiveFile();
+        const tags = (file?.seo?.keywords || []).join(', ');
+        copyToClipboard(tags, elements.btnCopyTags);
+      });
+    }
+
+    if (elements.btnCopyTop10Tags) {
+      elements.btnCopyTop10Tags.addEventListener('click', () => {
+        const file = getActiveFile();
+        const top10 = (file?.seo?.keywords || []).slice(0, 10).join(', ');
+        copyToClipboard(top10, elements.btnCopyTop10Tags);
+      });
+    }
+
+    if (elements.btnCopyAll) {
+      elements.btnCopyAll.addEventListener('click', () => {
+        const file = getActiveFile();
+        if (!file) return;
+        const title = elements.inputTitle.value;
+        const desc = elements.inputDesc.value;
+        const catList = file.seo?.categories || [];
+        const kwList = file.seo?.keywords || [];
+        const tagsStr = kwList.join(', ');
+        const catsStr = catList.join(', ');
+        const fullBlock = `Title:\n${title}\n\nDescription:\n${desc}\n\nCategories:\n${catsStr}\n\nKeywords (${kwList.length}):\n${tagsStr}`;
+        copyToClipboard(fullBlock, elements.btnCopyAll);
+      });
+    }
 
     // Title input with auto-save to SQLite staging
     elements.inputTitle.addEventListener('input', (e) => {
@@ -184,6 +338,28 @@
       updateSyncInspector(activeFile);
       debounceSaveStaged(activeFile);
     });
+
+    // Category Selector
+    if (elements.categorySelect) {
+      elements.categorySelect.addEventListener('change', (e) => {
+        const selectedCat = e.target.value;
+        if (!selectedCat) return;
+        const file = getActiveFile();
+        if (!file) return;
+        if (!file.seo) file.seo = { title: '', description: '', categories: [], keywords: [] };
+        if (!file.seo.categories) file.seo.categories = [];
+        if (!file.seo.categories.includes(selectedCat)) {
+          if (file.seo.categories.length >= 2) {
+            appendLog('WARN', 'Maksimal 2 kategori resmi Shutterstock per foto.');
+          } else {
+            file.seo.categories.push(selectedCat);
+            renderCategoryChips(file.seo.categories);
+            debounceSaveStaged(file);
+          }
+        }
+        e.target.value = '';
+      });
+    }
 
     // Tag Input
     elements.tagInput.addEventListener('keydown', (e) => {
@@ -213,11 +389,40 @@
             fileName: file.name,
             title: file.seo.title,
             description: file.seo.description,
+            categories: file.seo.categories,
             keywords: file.seo.keywords
           })
         });
       } catch (e) {}
     }, 600);
+  }
+
+  function renderCategoryChips(categories = []) {
+    if (!elements.categoriesChipsBox) return;
+    elements.categoriesChipsBox.innerHTML = '';
+    elements.categoriesCount.textContent = `${categories.length} / 2 selected`;
+
+    categories.forEach((cat, idx) => {
+      const chip = document.createElement('div');
+      chip.className = 'category-chip';
+      chip.innerHTML = `
+        <span class="cat-text">${cat}</span>
+        <span class="cat-remove" title="Hapus kategori">&times;</span>
+      `;
+      chip.querySelector('.cat-remove').onclick = (e) => {
+        e.stopPropagation();
+        removeCategory(idx);
+      };
+      elements.categoriesChipsBox.appendChild(chip);
+    });
+  }
+
+  function removeCategory(index) {
+    const file = getActiveFile();
+    if (!file || !file.seo?.categories) return;
+    file.seo.categories.splice(index, 1);
+    renderCategoryChips(file.seo.categories);
+    debounceSaveStaged(file);
   }
 
   // ──────────────────────────────────────────────────────────
@@ -273,14 +478,22 @@
         ctx.drawImage(img, 0, 0, w, h);
         const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
 
-        fetch(`/api/thumbnail/${encodeURIComponent(file.name)}`, {
+        fetch(`/api/thumbnail/${encodeURIComponent(file.name)}?t=${Date.now()}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ dataUrl })
         }).catch(() => {});
       } catch (e) {}
     };
-    img.src = file.fullImage || `/api/photo/${encodeURIComponent(file.name)}`;
+    img.onerror = () => {
+      // Direct retry using full image URL if cached thumbnail failed to render
+      if (!img.dataset?.retried) {
+        img.dataset = img.dataset || {};
+        img.dataset.retried = 'true';
+        img.src = `/api/photo/${encodeURIComponent(file.name)}?t=${Date.now()}`;
+      }
+    };
+    img.src = file.fullImage || `/api/photo/${encodeURIComponent(file.name)}?t=${Date.now()}`;
   }
 
   function getFilteredFiles() {
@@ -400,7 +613,7 @@
           <input type="checkbox" class="file-chk" ${isSelected ? 'checked' : ''} style="cursor: pointer; accent-color: var(--text-primary);">
         </div>
         <div class="file-thumb-mini">
-          <img src="${file.thumbnail}" alt="${file.name}" loading="lazy" decoding="async">
+          <img src="${file.thumbnail}" alt="${file.name}" loading="lazy" decoding="async" onerror="this.onerror=null; this.src='/api/photo/${encodeURIComponent(file.name)}?t=${Date.now()}';">
         </div>
         <div class="file-info">
           <div class="file-name" title="${file.name}">${file.name}</div>
@@ -451,7 +664,20 @@
     // Populate Headers & Tech Specs
     elements.activeFileTitle.textContent = file.name;
     elements.activeFilePath.textContent = `photo/${file.name}`;
-    elements.previewImage.src = file.fullImage || `/api/photo/${encodeURIComponent(file.name)}`;
+    
+    // Auto-retry image load fallback on previewImage
+    elements.previewImage.onerror = function() {
+      if (!this.dataset.retried) {
+        this.dataset.retried = 'true';
+        const freshUrl = `/api/photo/${encodeURIComponent(file.name)}?t=${Date.now()}`;
+        setTimeout(() => { this.src = freshUrl; }, 150);
+      }
+    };
+    elements.previewImage.onload = function() {
+      delete this.dataset.retried;
+    };
+    elements.previewImage.src = file.fullImage || `/api/photo/${encodeURIComponent(file.name)}?t=${Date.now()}`;
+
     elements.specFormat.textContent = file.format.toUpperCase();
     elements.specDimensions.textContent = file.dimensions || '-';
     elements.specFileSize.textContent = file.size;
@@ -483,12 +709,14 @@
     elements.visionRawText.textContent = file.visionRaw || 'Belum diproses melalui AI Vision. Klik "AI Vision + SEO" untuk menganalisa visual gambar ini dan menyimpannya ke database SQLite.';
 
     // SEO Form
-    if (!file.seo) file.seo = { title: '', description: '', keywords: [] };
+    if (!file.seo) file.seo = { title: '', description: '', categories: [], keywords: [] };
+    if (!file.seo.categories) file.seo.categories = [];
     elements.inputTitle.value = file.seo.title || '';
     elements.inputDesc.value = file.seo.description || '';
     
     updateTitleCounters();
     updateDescCounters();
+    renderCategoryChips(file.seo.categories || []);
     renderTagChips(file.seo.keywords || []);
     updateSyncInspector(file);
 
@@ -1101,6 +1329,63 @@
     } catch (err) {
       hideQueueProgress();
       appendLog('ERR', `Batch injection error: ${err.message}`);
+    }
+  }
+
+  async function handleExportCsv() {
+    const selectedFiles = state.files.filter(f => state.selectedFileIds.has(f.id));
+    const isSelectionActive = selectedFiles.length > 0;
+    
+    appendLog('EXPORT', `Generating Shutterstock CSV for ${isSelectionActive ? selectedFiles.length + ' selected' : 'all'} file(s)...`);
+
+    try {
+      let res;
+      if (isSelectionActive) {
+        const items = selectedFiles.map(f => ({
+          fileName: f.name,
+          filePath: f.filePath,
+          title: f.seo?.title,
+          description: f.seo?.description,
+          keywords: f.seo?.keywords,
+          format: f.format
+        }));
+        res = await fetch('/api/export/csv', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ items })
+        });
+      } else {
+        res = await fetch('/api/export/csv');
+      }
+
+      if (res.ok) {
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        const filenameHeader = res.headers.get('content-disposition');
+        let filename = 'shutterstock_metadata.csv';
+        if (filenameHeader && filenameHeader.includes('filename=')) {
+          filename = filenameHeader.split('filename=')[1].replace(/"/g, '');
+        }
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+
+        appendLog('SUCCESS', `Shutterstock CSV successfully downloaded: ${filename}`);
+      } else {
+        if (res.status === 404) {
+          throw new Error('Server Node.js belum di-restart dengan fitur CSV terbaru. Silakan muat ulang server (npm run web).');
+        }
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || `Gagal menggenerate CSV (HTTP ${res.status})`);
+      }
+    } catch (err) {
+      appendLog('ERR', `Error exporting CSV: ${err.message}`);
+      alert(`Gagal mengunduh CSV: ${err.message}`);
     }
   }
 

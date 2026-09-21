@@ -30,6 +30,7 @@ function initSchema(db) {
       vision_raw TEXT NOT NULL,
       seo_title TEXT NOT NULL,
       seo_description TEXT NOT NULL,
+      seo_categories TEXT DEFAULT '[]',
       seo_keywords TEXT NOT NULL,
       vision_tokens INTEGER DEFAULT 0,
       seo_tokens INTEGER DEFAULT 0,
@@ -50,6 +51,7 @@ function initSchema(db) {
       vision_raw TEXT,
       seo_title TEXT,
       seo_description TEXT,
+      seo_categories TEXT DEFAULT '[]',
       seo_keywords TEXT,
       tokens_used INTEGER DEFAULT 0,
       cost_usd REAL DEFAULT 0.0,
@@ -57,6 +59,10 @@ function initSchema(db) {
       updated_at TEXT DEFAULT (datetime('now'))
     );
   `);
+
+  // Migrasi skema otomatis untuk database yang sudah ada
+  try { db.exec(`ALTER TABLE ai_cache ADD COLUMN seo_categories TEXT DEFAULT '[]';`); } catch (e) {}
+  try { db.exec(`ALTER TABLE file_history ADD COLUMN seo_categories TEXT DEFAULT '[]';`); } catch (e) {}
 
   // 3. Tabel Metrik & Statistik Global
   db.exec(`
@@ -88,12 +94,16 @@ export function saveStagedFile(data) {
     const db = getDb();
     const keywordsJson = typeof data.seo_keywords === 'string' 
       ? data.seo_keywords 
-      : JSON.stringify(data.seo_keywords || []);
+      : JSON.stringify(data.seo_keywords || data.keywords || []);
+    
+    const categoriesJson = typeof data.seo_categories === 'string'
+      ? data.seo_categories
+      : JSON.stringify(data.seo_categories || data.categories || []);
 
     const stmt = db.prepare(`
       INSERT INTO file_history 
-      (file_path, file_name, image_hash, format, file_size, status, vision_raw, seo_title, seo_description, seo_keywords, tokens_used, cost_usd, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+      (file_path, file_name, image_hash, format, file_size, status, vision_raw, seo_title, seo_description, seo_categories, seo_keywords, tokens_used, cost_usd, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
       ON CONFLICT(file_path) DO UPDATE SET
         file_name = excluded.file_name,
         image_hash = excluded.image_hash,
@@ -103,6 +113,7 @@ export function saveStagedFile(data) {
         vision_raw = excluded.vision_raw,
         seo_title = excluded.seo_title,
         seo_description = excluded.seo_description,
+        seo_categories = excluded.seo_categories,
         seo_keywords = excluded.seo_keywords,
         tokens_used = excluded.tokens_used,
         cost_usd = excluded.cost_usd,
@@ -117,8 +128,9 @@ export function saveStagedFile(data) {
       data.file_size || 0,
       data.status || 'scanned',
       data.vision_raw || '',
-      data.seo_title || '',
-      data.seo_description || '',
+      data.seo_title || data.title || '',
+      data.seo_description || data.description || '',
+      categoriesJson,
       keywordsJson,
       data.tokens_used || 0,
       data.cost_usd || 0.0
@@ -135,9 +147,14 @@ export function getStagedFile(filePath) {
     const stmt = db.prepare('SELECT * FROM file_history WHERE file_path = ?');
     const row = stmt.get(filePath);
     if (!row) return null;
+    const categories = JSON.parse(row.seo_categories || '[]');
+    const keywords = JSON.parse(row.seo_keywords || '[]');
     return {
       ...row,
-      seo_keywords: JSON.parse(row.seo_keywords || '[]')
+      seo_categories: categories,
+      categories: categories,
+      seo_keywords: keywords,
+      keywords: keywords
     };
   } catch (err) {
     return null;
@@ -149,10 +166,17 @@ export function getAllStagedFiles() {
     const db = getDb();
     const stmt = db.prepare('SELECT * FROM file_history ORDER BY updated_at DESC');
     const rows = stmt.all();
-    return rows.map(r => ({
-      ...r,
-      seo_keywords: JSON.parse(r.seo_keywords || '[]')
-    }));
+    return rows.map(r => {
+      const categories = JSON.parse(r.seo_categories || '[]');
+      const keywords = JSON.parse(r.seo_keywords || '[]');
+      return {
+        ...r,
+        seo_categories: categories,
+        categories: categories,
+        seo_keywords: keywords,
+        keywords: keywords
+      };
+    });
   } catch (err) {
     return [];
   }
@@ -164,13 +188,16 @@ export function updateStagedFileMetadata(filePath, metadata) {
     const keywordsJson = typeof metadata.keywords === 'string' 
       ? metadata.keywords 
       : JSON.stringify(metadata.keywords || []);
+    const categoriesJson = typeof metadata.categories === 'string'
+      ? metadata.categories
+      : JSON.stringify(metadata.categories || []);
 
     const stmt = db.prepare(`
       UPDATE file_history
-      SET seo_title = ?, seo_description = ?, seo_keywords = ?, updated_at = datetime('now')
+      SET seo_title = ?, seo_description = ?, seo_categories = ?, seo_keywords = ?, updated_at = datetime('now')
       WHERE file_path = ?
     `);
-    stmt.run(metadata.title || '', metadata.description || '', keywordsJson, filePath);
+    stmt.run(metadata.title || '', metadata.description || '', categoriesJson, keywordsJson, filePath);
     return true;
   } catch (err) {
     return false;
@@ -183,13 +210,16 @@ export function markFileInjected(oldFilePath, newFilePath, metadata) {
     const keywordsJson = typeof metadata.keywords === 'string' 
       ? metadata.keywords 
       : JSON.stringify(metadata.keywords || []);
+    const categoriesJson = typeof metadata.categories === 'string'
+      ? metadata.categories
+      : JSON.stringify(metadata.categories || []);
 
     const stmt = db.prepare(`
       UPDATE file_history
-      SET file_path = ?, file_name = ?, status = 'injected', seo_title = ?, seo_description = ?, seo_keywords = ?, updated_at = datetime('now')
+      SET file_path = ?, file_name = ?, status = 'injected', seo_title = ?, seo_description = ?, seo_categories = ?, seo_keywords = ?, updated_at = datetime('now')
       WHERE file_path = ?
     `);
-    stmt.run(newFilePath, path.basename(newFilePath), metadata.title || '', metadata.description || '', keywordsJson, oldFilePath);
+    stmt.run(newFilePath, path.basename(newFilePath), metadata.title || '', metadata.description || '', categoriesJson, keywordsJson, oldFilePath);
     return true;
   } catch (err) {
     return false;
