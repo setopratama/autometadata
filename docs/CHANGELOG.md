@@ -2,6 +2,26 @@
 
 Dokumen ini mencatat seluruh riwayat perubahan, penambahan fitur, dan perbaikan bug pada proyek **imgmeta-seo (autometadata)**.
 
+## [1.4.0] — 2026-09-27
+
+### 🚀 Optimasi SEO & Algoritma Stock (Dominant Focal Object Hierarchy & Title-Tag Correlation)
+- **Fokus Objek Terbesar/Dominan pada Top 10 Keywords (Layer 1):**
+  - *Vision Audit (`src/vision.js`):* Memperbarui pilar `PRIMARY_SUBJECTS_AND_ELEMENTS` untuk mengekstrak entitas fisik terbesar/paling dominan (*visual weight priority*), anatomi/komponen fisik objek, serta material secara eksplisit.
+  - *DeepSeek SEO Prompt (`src/seo.js`):* Menetapkan aturan ketat pada **Layer 1 (Keyword 1–10)** menjadi *DOMINANT & LARGEST PHYSICAL OBJECTS ONLY*. Dilarang keras menempatkan kata-kata teknis/modifier (*lighting, copy space, background, advertising, macro, perspective*) pada 10 keyword pertama.
+  - *Filter Non-Object Modifiers (`src/seo.js`):* Menambahkan set `NON_OBJECT_MODIFIERS` dan fungsi `isNonObjectModifierTag` untuk mempartisi kata kunci dan memindahkan modifier/suasana ke layer belakang (Layer 4).
+  - *Smart Constituent Expansion (`src/seo.js`):* Menambahkan fungsi `isWordRepresented` dan ekspansi otomatis komponen fisik dari kata majemuk (*compound tags*) agar 10 tag pertama terisi penuh oleh kata benda konkret dan fisik.
+- **Penguatan Panjang Title (125–200 Karakter) & Auto-Enrichment:**
+  - Menetapkan `TITLE_MIN_LEN = 125` dan `TITLE_MAX_LEN = 200` di `src/seo.js`.
+  - Mengimplementasikan auto-enrichment cerdas pada `validateSeoOutput` agar judul singkat (< 125 karakter) diperkaya konteks visual dan komersialnya tanpa merusak susunan kalimat.
+- **Engine Korelasi 2-Arah (Title $\leftrightarrow$ Tag Synchronization):**
+  - Objek fokal dominan dari Title disinkronkan ke **Top 10 Keywords (Layer 1)**.
+  - Konteks suasana, material, pencahayaan, dan kegunaan komersial dari Title disinkronkan ke **Keywords 11–45 (Layer 2–4)**.
+- **Pengujian Ulang Otomatis 2-Tahap (`test/selftest.js`):**
+  - *Test 13:* Validasi prioritas objek fisik dominan dan isolasi modifier dari 10 tag pertama.
+  - *Test 14:* Validasi 2-Tahap: Pengujian panjang Title (125–200 karakter) dilanjutkan pengujian keselarasan Tag terhadap Title dan Foto.
+
+---
+
 ## [1.3.0] — 2026-09-21
 
 ### 🚀 Fitur Baru (New Features)
