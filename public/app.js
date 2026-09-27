@@ -459,7 +459,7 @@
     img.crossOrigin = 'anonymous';
     img.onload = () => {
       try {
-        const maxDim = 200;
+        const maxDim = 800;
         let w = img.width;
         let h = img.height;
         if (w > maxDim || h > maxDim) {
@@ -476,7 +476,7 @@
         canvas.height = h;
         const ctx = canvas.getContext('2d');
         ctx.drawImage(img, 0, 0, w, h);
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
 
         fetch(`/api/thumbnail/${encodeURIComponent(file.name)}?t=${Date.now()}`, {
           method: 'POST',
@@ -665,7 +665,7 @@
     elements.activeFileTitle.textContent = file.name;
     elements.activeFilePath.textContent = `photo/${file.name}`;
     
-    // Auto-retry image load fallback on previewImage
+    // Auto-retry image load fallback on previewImage (fallback to full photo if tmp thumbnail not ready)
     elements.previewImage.onerror = function() {
       if (!this.dataset.retried) {
         this.dataset.retried = 'true';
@@ -676,7 +676,7 @@
     elements.previewImage.onload = function() {
       delete this.dataset.retried;
     };
-    elements.previewImage.src = file.fullImage || `/api/photo/${encodeURIComponent(file.name)}?t=${Date.now()}`;
+    elements.previewImage.src = file.thumbnail || `/api/thumbnail/${encodeURIComponent(file.name)}?t=${Date.now()}`;
 
     elements.specFormat.textContent = file.format.toUpperCase();
     elements.specDimensions.textContent = file.dimensions || '-';

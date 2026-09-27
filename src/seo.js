@@ -2,6 +2,7 @@
 
 import { logFailure, writeLog } from './utils.js';
 
+export const TITLE_MIN_LEN = 125;
 export const TITLE_MAX_LEN = 200;
 export const KEYWORDS_MIN = 25;
 export const KEYWORDS_TARGET = 40;
@@ -44,6 +45,27 @@ export const FORBIDDEN_TERMS = new Set([
   'iso', 'f/2.8', '50mm', 'shutter', 'dslr', 'megapixels', 'raw format',
   'tag1', 'tag2', 'tag3', 'tag4', 'tag5', 'tags', 'keyword', 'keywords'
 ]);
+
+export const NON_OBJECT_MODIFIERS = new Set([
+  'macro', 'micro', 'texture', 'textured', 'background', 'backgrounds', 'surface', 'surfaces', 'pattern', 'patterns',
+  'isolated', 'isolation', 'copyspace', 'copy', 'space', 'shot', 'view', 'angle', 'perspective',
+  'lighting', 'light', 'lights', 'ambient', 'illumination', 'sunlight', 'shadow', 'shadows', 'glow',
+  'advertising', 'advertisement', 'concept', 'conceptual', 'design', 'presentation', 'banner', 'graphic',
+  'visual', 'commercial', 'editorial', 'high', 'flat', 'lay', 'flatlay', 'topdown', 'close', 'closeup',
+  'warm', 'cold', 'bright', 'dark', 'fresh', 'freshly', 'clean', 'modern', 'minimal', 'minimalist', 'abstract',
+  'style', 'stylish', 'vintage', 'rustic', 'golden', 'hour', 'natural', 'pure', 'organic', 'raw', 'ripe',
+  'delicious', 'tasty', 'homemade', 'traditional', 'authentic', 'beautiful', 'sweet', 'hot', 'cozy',
+  'soft', 'hard', 'smooth', 'rough', 'small', 'large', 'big', 'full', 'empty', 'deep', 'rich', 'aromatic',
+  'vibrant', 'colorful', 'glossy', 'matte', 'shiny', 'overhead', 'detail', 'detailed', 'focus', 'nobody',
+  'horizontal', 'vertical', 'indoor', 'indoors', 'outdoor', 'outdoors', 'side', 'front', 'frame', 'selective',
+  'composition', 'template', 'layout', 'wallpaper', 'blur', 'bokeh', 'generative', 'ai'
+]);
+
+export function isNonObjectModifierTag(tag) {
+  if (!tag || typeof tag !== 'string') return false;
+  const words = tag.toLowerCase().trim().split(/\s+/);
+  return words.every(w => NON_OBJECT_MODIFIERS.has(w)) || (words.length === 1 && NON_OBJECT_MODIFIERS.has(words[0]));
+}
 
 export function getWordStem(word) {
   if (typeof word !== 'string') return '';
@@ -106,6 +128,23 @@ export function hasStemCollision(cleanList, candidate) {
   return false;
 }
 
+export function isWordRepresented(keywordList, word) {
+  if (!word || typeof word !== 'string') return false;
+  const wNorm = word.toLowerCase().trim();
+  const wStem = getWordStem(wNorm);
+  for (const kw of keywordList) {
+    const kwNorm = kw.toLowerCase().trim();
+    if (kwNorm === wNorm || getWordStem(kwNorm) === wStem) return true;
+    const parts = kwNorm.split(' ');
+    for (const part of parts) {
+      if (part === wNorm || getWordStem(part) === wStem) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 export function validateSeoOutput(raw) {
   let title = (raw.title || '').trim();
   let description = (raw.description || '').trim();
@@ -115,14 +154,37 @@ export function validateSeoOutput(raw) {
   // 1. Remove leading filler words from title
   title = title.replace(/^(a|an|the|photo of|image of|close up of)\s+/i, '').trim();
 
-  // 2. Clamp title to max 200 characters cleanly
+  // 2. Title Auto-Enrichment if shorter than TITLE_MIN_LEN (125 characters)
+  if (title && title.length < TITLE_MIN_LEN) {
+    const enrichments = [
+      'with Natural Ambient Lighting and Copy Space for Commercial Advertising',
+      'High Quality Stock Visual Asset for Creative Design and Marketing',
+      'Professional Composition for Commercial Editorial and Branding Publications'
+    ];
+    for (const enrich of enrichments) {
+      if (title.length >= TITLE_MIN_LEN) break;
+      const candidate = `${title} ${enrich}`.trim();
+      if (candidate.length <= TITLE_MAX_LEN) {
+        title = candidate;
+      } else {
+        const remainingLen = TITLE_MAX_LEN - title.length - 1;
+        if (remainingLen > 20) {
+          const sub = enrich.slice(0, remainingLen);
+          const lastSpace = sub.lastIndexOf(' ');
+          title = `${title} ${(lastSpace > 10 ? sub.slice(0, lastSpace) : sub).trim()}`.trim();
+        }
+      }
+    }
+  }
+
+  // 3. Clamp title to max 200 characters cleanly
   if (title.length > TITLE_MAX_LEN) {
     const truncated = title.slice(0, TITLE_MAX_LEN);
     const lastSpace = truncated.lastIndexOf(' ');
     title = (lastSpace > 100 ? truncated.slice(0, lastSpace) : truncated).trim();
   }
 
-  // 3. Validate & Sanitize Keywords (Stemming deduplication, no trademarks, max 2 words per tag)
+  // 4. Validate & Sanitize Keywords (Stemming deduplication, no trademarks, max 2 words per tag)
   const cleanKeywords = [];
   for (let kw of rawKeywords) {
     if (typeof kw !== 'string') continue;
@@ -150,41 +212,88 @@ export function validateSeoOutput(raw) {
     }
   }
 
-  // 4. Ensure Core Title Words are in Top 10 Keywords (Algorithmic Search Relevance)
+  // 5. Partition Keywords: Strictly prioritize Dominant Physical Objects in Top 10 (Push Non-Object Modifiers to Later Layers)
+  const objectTags = [];
+  const modifierTags = [];
+
+  for (const kw of cleanKeywords) {
+    if (isNonObjectModifierTag(kw)) {
+      modifierTags.push(kw);
+    } else {
+      objectTags.push(kw);
+    }
+  }
+
+  // 6. Ensure Core Dominant Object Words from Title are represented in Top 10 Keywords
   const titleWords = title
     .toLowerCase()
     .split(/\s+/)
     .map(w => w.replace(/[^a-z0-9]/g, ''))
-    .filter(w => w.length > 3 && !FORBIDDEN_TERMS.has(w));
+    .filter(w => w.length > 2 && !FORBIDDEN_TERMS.has(w) && !NON_OBJECT_MODIFIERS.has(w));
 
   for (const tw of titleWords) {
-    if (!cleanKeywords.slice(0, 10).includes(tw) && !hasStemCollision(cleanKeywords.slice(0, 10), tw)) {
-      // Remove if it exists later and move to top
-      const existingIdx = cleanKeywords.findIndex(k => getWordStem(k) === getWordStem(tw));
+    const inTop10 = isWordRepresented(objectTags.slice(0, 10), tw);
+    if (!inTop10) {
+      const existingIdx = objectTags.findIndex(k => isWordRepresented([k], tw));
       if (existingIdx !== -1) {
-        cleanKeywords.splice(existingIdx, 1);
+        const [foundKw] = objectTags.splice(existingIdx, 1);
+        objectTags.unshift(foundKw);
+      } else if (!hasStemCollision(objectTags, tw)) {
+        objectTags.push(tw);
       }
-      cleanKeywords.unshift(tw);
     }
   }
 
+  // 7. Ensure Core Modifier & Context Words from Title are represented in modifierTags (Tags 11-45)
+  const titleModifierWords = title
+    .toLowerCase()
+    .split(/\s+/)
+    .map(w => w.replace(/[^a-z0-9]/g, ''))
+    .filter(w => w.length > 2 && !FORBIDDEN_TERMS.has(w) && NON_OBJECT_MODIFIERS.has(w));
+
+  for (const mw of titleModifierWords) {
+    if (!isWordRepresented(modifierTags, mw) && !hasStemCollision(modifierTags, mw) && (objectTags.length + modifierTags.length) < KEYWORDS_MAX) {
+      modifierTags.push(mw);
+    }
+  }
+
+  // 8. If objectTags has fewer than 10 tags, expand constituent object parts from compound tags or title to fill Top 10 with physical objects
+  if (objectTags.length < 10) {
+    for (const ot of [...objectTags]) {
+      const parts = ot.split(' ').filter(p => p.length > 2 && !NON_OBJECT_MODIFIERS.has(p) && !FORBIDDEN_TERMS.has(p));
+      for (const part of parts) {
+        if (!hasStemCollision(objectTags, part) && objectTags.length < 10) {
+          objectTags.push(part);
+        }
+      }
+      if (objectTags.length >= 10) break;
+    }
+  }
+
+  // Re-combine: Pure physical objects first (Top 10+), followed by modifiers and abstract associations
+  let partitionedKeywords = [...objectTags, ...modifierTags];
+
   // Ensure minimum 7 keywords by extracting from title/description if AI output had too few
-  if (cleanKeywords.length < 7 && (title || description)) {
+  if (partitionedKeywords.length < 7 && (title || description)) {
     const textWords = `${title} ${description}`
       .toLowerCase()
       .split(/\s+/)
       .map(w => w.replace(/[^a-z0-9]/g, ''))
-      .filter(w => w.length > 3 && !FORBIDDEN_TERMS.has(w));
+      .filter(w => w.length > 2 && !FORBIDDEN_TERMS.has(w));
     
     for (const tw of textWords) {
-      if (!hasStemCollision(cleanKeywords, tw) && cleanKeywords.length < 50) {
-        cleanKeywords.push(tw);
+      if (!hasStemCollision(partitionedKeywords, tw) && partitionedKeywords.length < KEYWORDS_MAX) {
+        if (!NON_OBJECT_MODIFIERS.has(tw)) {
+          partitionedKeywords.unshift(tw);
+        } else {
+          partitionedKeywords.push(tw);
+        }
       }
-      if (cleanKeywords.length >= 7) break;
+      if (partitionedKeywords.length >= 7) break;
     }
   }
 
-  // 5. Description Validation (Ensure 1-2 flowing descriptive sentences, not a keyword list)
+  // 9. Description Validation (Ensure 1-2 flowing descriptive sentences, not a keyword list)
   const isDotList = description.split(/\.\s+/).length >= 3 && description.split(/\.\s+/).every(s => s.trim().split(' ').length <= 2);
   const isCommaList = description.split(/,\s+/).length >= 4 && description.split(/,\s+/).every(s => s.trim().split(' ').length <= 2);
   
@@ -192,7 +301,7 @@ export function validateSeoOutput(raw) {
     description = `${title}. Commercial high-quality stock asset ready for marketing, creative designs, and editorial publications.`;
   }
 
-  // 6. Validate & Normalize Categories (Strictly 1 to 2 from OFFICIAL_SHUTTERSTOCK_CATEGORIES)
+  // 10. Validate & Normalize Categories (Strictly 1 to 2 from OFFICIAL_SHUTTERSTOCK_CATEGORIES)
   const cleanCategories = [];
   for (const catCandidate of rawCategories) {
     if (typeof catCandidate !== 'string') continue;
@@ -206,7 +315,7 @@ export function validateSeoOutput(raw) {
 
   // Smart Fallback Category Inferencing if AI returned invalid or empty categories
   if (cleanCategories.length === 0) {
-    const textBlob = `${title} ${description} ${cleanKeywords.join(' ')}`.toLowerCase();
+    const textBlob = `${title} ${description} ${partitionedKeywords.join(' ')}`.toLowerCase();
     
     if (/food|coffee|drink|fruit|vegetable|dish|meal|beverage|gourmet|cafe|restaurant|tea|espresso/i.test(textBlob)) {
       cleanCategories.push('Food and drink');
@@ -235,7 +344,7 @@ export function validateSeoOutput(raw) {
     }
   }
 
-  const finalKeywords = cleanKeywords.slice(0, KEYWORDS_MAX);
+  const finalKeywords = partitionedKeywords.slice(0, KEYWORDS_MAX);
   writeLog('SEO', 'VALIDATE', `Title (${title.length}/${TITLE_MAX_LEN} chars): "${title}" | Categories: [${cleanCategories.join(', ')}] | Keywords: ${finalKeywords.length} tags`);
 
   return {
@@ -265,9 +374,10 @@ Your mission is to craft maximum-visibility, high-converting metadata for stock 
 ALGORITHMIC METADATA & KEYWORD BEST PRACTICES:
 ==============================================================================
 
-1. STOCK TITLE (Up to 200 Characters):
-   - FORMULA: [Primary Focal Object] + [Micro-Textures/Materials] + [Camera Perspective/Angle] + [Lighting & Color] + [Commercial Context]
-   - Example: "Freshly Roasted Dark Espresso Coffee Beans Macro Texture Shot with Warm Ambient Lighting and Copy Space for Cafe Advertising"
+1. STOCK TITLE (STRICT LENGTH: Exactly 125 to 200 Characters Long):
+   - MANDATORY LENGTH: Must be between 125 and 200 characters long. DO NOT generate short titles (<125 chars).
+   - FORMULA: [Dominant Focal Subject & Anatomy] + [Physical Textures/Materials] + [Setting/Environment] + [Camera Perspective/Angle] + [Lighting Atmosphere] + [Commercial Context & Copy Space]
+   - Example: "Freshly Roasted Dark Espresso Coffee Beans Macro Texture Shot on Rustic Wooden Table with Warm Ambient Golden Hour Lighting and Copy Space for Cafe Advertising" (167 chars)
    - Zero filler words: Never start with "A", "An", "The", "Photo of", "Image of".
 
 2. DESCRIPTION (1-2 Descriptive Sentences):
@@ -278,10 +388,16 @@ ALGORITHMIC METADATA & KEYWORD BEST PRACTICES:
    - Select ONLY from: ["Abstract", "Animals/Wildlife", "Arts", "Backgrounds/Textures", "Beauty/Fashion", "Buildings/Landmarks", "Business/Finance", "Celebrities", "Education", "Food and drink", "Healthcare/Medical", "Holidays", "Industrial", "Interiors", "Miscellaneous", "Nature", "Objects", "Parks/Outdoor", "People", "Religion", "Science", "Signs/Symbols", "Sports/Recreation", "Technology", "Transportation", "Vintage"]
 
 4. KEYWORDS (Exactly 30 to 45 Tags - 4-LAYER KEYWORD PYRAMID):
-   - LAYER 1 (SPECIFIC OBJECTS // Tags 1-10): Focal subjects and primary nouns from title (e.g., 'shiba inu', 'espresso', 'facade').
-   - LAYER 2 (BROADER TOPICS // Tags 11-20): Main categories & industries (e.g., 'dog', 'pet', 'coffee', 'architecture').
-   - LAYER 3 (CONCEPTS & MOOD // Tags 21-30): Emotional triggers, abstract concepts, sensory moods (e.g., 'playful', 'loyalty', 'minimalism', 'aroma').
-   - LAYER 4 (RELEVANT ASSOCIATIONS // Tags 31-45): Commercial uses, backgrounds, shot angles, textures (e.g., 'background', 'pattern', 'macro', 'lighting').
+   - LAYER 1 (TAGS 1-10 — DOMINANT & LARGEST PHYSICAL OBJECTS ONLY):
+     * Strictly dedicated to the LARGEST, MOST PROMINENT physical subject occupying the image frame.
+     * Must include: Exact specific entity name (e.g., 'espresso', 'shiba inu', 'skyscraper'), broader object classification ('coffee', 'dog', 'building'), physical parts/anatomy ('coffee beans', 'crema', 'cup', 'paw', 'fur', 'facade', 'window'), and physical material ('ceramic', 'glass', 'concrete').
+     * STRICT PROHIBITION FOR TAGS 1-10: NO lighting, NO macro/camera angle terms, NO 'background', NO 'copy space', NO 'advertising', NO generic mood or conceptual words. Tags 1-10 must be 100% tangible physical entities visible in the photo.
+   - LAYER 2 (TAGS 11-20 — SUPPORTING OBJECTS & SETTING):
+     * Secondary visible objects, physical background surfaces, immediate environment (e.g., 'table', 'wood', 'saucer', 'park', 'outdoor', 'street').
+   - LAYER 3 (TAGS 21-30 — THEMES, INDUSTRIES & ACTIONS):
+     * Industry contexts, functions, actions, sensory aspects (e.g., 'cafe', 'barista', 'breakfast', 'caffeine', 'pet care', 'architecture', 'morning').
+   - LAYER 4 (TAGS 31-45 — RELEVANT ASSOCIATIONS & COMPOSITION):
+     * Commercial uses, mood, lighting style, shot angles, textures (e.g., 'copy space', 'warm lighting', 'macro', 'background', 'minimalism', 'close up').
 
 ==============================================================================
 STRICT CONSTRAINTS (PREVENT REJECTION):

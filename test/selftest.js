@@ -338,6 +338,82 @@ export async function runSelfTests() {
     assert(validated.keywords.length >= 7 && validated.keywords.length <= 50, 'Keywords count must be between 7 and 50');
   });
 
+  // ── TEST 13: Dominant Physical Object Top 10 Focus & Non-Object Modifier Filtering ──
+  test('Dominant Physical Object Priority in Top 10 Keywords', () => {
+    const rawPhotoMeta = {
+      title: 'Espresso Coffee Beans in Ceramic Cup on Wooden Table with Warm Ambient Lighting and Copy Space for Advertising',
+      description: 'A hot cup of espresso coffee served on a wooden table.',
+      categories: ['Food and drink'],
+      keywords: [
+        'macro', 'lighting', 'espresso', 'ambient', 'coffee beans', 'copy space', 
+        'ceramic cup', 'background', 'wooden table', 'saucer', 'crema', 'advertising'
+      ]
+    };
+
+    const validated = validateSeoOutput(rawPhotoMeta);
+    const top10 = validated.keywords.slice(0, 10);
+
+    // Dominant objects must be in the top 10
+    assert(top10.includes('espresso'), 'Top 10 must include dominant object "espresso"');
+    assert(top10.includes('coffee beans'), 'Top 10 must include dominant object "coffee beans"');
+    assert(top10.includes('ceramic cup'), 'Top 10 must include physical component "ceramic cup"');
+    assert(top10.includes('saucer'), 'Top 10 must include physical object "saucer"');
+    assert(top10.includes('crema'), 'Top 10 must include physical element "crema"');
+
+    // Modifiers must NOT be in the top 10 when objects are present
+    assert(!top10.includes('lighting'), 'Top 10 must not include modifier "lighting"');
+    assert(!top10.includes('macro'), 'Top 10 must not include modifier "macro"');
+    assert(!top10.includes('copy space'), 'Top 10 must not include modifier "copy space"');
+    assert(!top10.includes('background'), 'Top 10 must not include modifier "background"');
+    assert(!top10.includes('advertising'), 'Top 10 must not include modifier "advertising"');
+  });
+
+  // ── TEST 14: Two-Stage SEO Verification: Title (125-200 Chars) & Tag Correlation Pipeline ──
+  test('Two-Stage SEO Verification: Title Length (125-200 chars) & Tag Correlation Pipeline', () => {
+    // Stage 1: Title Validation & Auto-Enrichment Test (Min 125 chars)
+    const shortTitleInput = {
+      title: 'Espresso Coffee Beans in Cup',
+      description: 'Roasted dark coffee beans inside a white ceramic cup.',
+      categories: ['Food and drink'],
+      keywords: ['espresso', 'coffee beans', 'ceramic cup', 'roasted', 'dark roast', 'caffeine', 'saucer']
+    };
+
+    const stage1Result = validateSeoOutput(shortTitleInput);
+    assert(stage1Result.title.length >= 125, `Title length (${stage1Result.title.length}) must be at least 125 characters`);
+    assert(stage1Result.title.length <= 200, `Title length (${stage1Result.title.length}) must not exceed 200 characters`);
+    assert(!/^(a|an|the|photo of|image of|close up of)\s+/i.test(stage1Result.title), 'Title must not start with filler words');
+
+    // Stage 2: Tag Correlation with Photo & Title Test
+    const fullPhotoInput = {
+      title: 'Freshly Roasted Dark Espresso Coffee Beans Macro Texture Shot on Rustic Wooden Table with Warm Ambient Golden Hour Lighting and Copy Space for Cafe Advertising',
+      description: 'High angle shot of aromatic coffee beans on a wooden table.',
+      categories: ['Food and drink'],
+      keywords: [
+        'espresso', 'coffee beans', 'macro', 'wooden table', 'lighting', 'ceramic cup', 
+        'ambient', 'saucer', 'crema', 'copy space', 'roasted coffee', 'caffeine', 'advertising'
+      ]
+    };
+
+    const stage2Result = validateSeoOutput(fullPhotoInput);
+    const top10Tags = stage2Result.keywords.slice(0, 10);
+    const remainingTags = stage2Result.keywords.slice(10);
+
+    // 1. Verify Top 10 Tags strictly contain dominant physical objects from Title and Photo
+    assert(top10Tags.includes('espresso'), 'Top 10 must contain primary object "espresso"');
+    assert(top10Tags.includes('coffee beans'), 'Top 10 must contain primary object "coffee beans"');
+    assert(top10Tags.includes('wooden table'), 'Top 10 must contain setting object "wooden table"');
+    assert(top10Tags.includes('ceramic cup'), 'Top 10 must contain component object "ceramic cup"');
+
+    // 2. Verify Title modifier terms (lighting, copy space, advertising) are correlated and placed in remaining tags
+    assert(remainingTags.includes('lighting') || remainingTags.includes('ambient'), 'Modifier tags must contain lighting context from title');
+    assert(remainingTags.includes('copy space') || remainingTags.includes('advertising') || remainingTags.includes('macro'), 'Modifier tags must contain commercial utility from title');
+
+    // 3. Verify zero forbidden terms
+    for (const kw of stage2Result.keywords) {
+      assert(!['canon', 'nikon', 'apple', 'iso', '50mm'].includes(kw), 'Keywords must not contain forbidden camera/brand terms');
+    }
+  });
+
   console.log(`\n${passed === total ? colors.green : colors.red}Hasil: ${passed} dari ${total} pengujian lulus.${colors.reset}\n`);
   if (passed === total) {
     console.log(`${colors.green}${colors.bold}Semua pengujian lulus.${colors.reset}\n`);

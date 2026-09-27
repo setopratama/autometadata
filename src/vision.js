@@ -28,9 +28,10 @@ export async function analyzeImageVision(imageBuffer, options = {}) {
   const visionPrompt = `You are an expert commercial stock photography visual auditor and art director.
 Perform an exhaustive, highly detailed visual audit of the provided stock image across 6 critical commercial dimensions:
 
-1. PRIMARY_SUBJECTS_AND_ELEMENTS:
-   - Exhaustive breakdown of the central focal subject, secondary supporting elements, and objects.
-   - Materials, physical states, textures, gestures, interactions, and spatial positioning.
+1. PRIMARY_SUBJECTS_AND_ELEMENTS (Dominant Focal Objects & Hierarchy):
+   - Exhaustive breakdown of the LARGEST, MOST PROMINENT central focal subject and physical objects occupying the frame (identify exact species, item names, tangible models, tools, or foods).
+   - Direct physical anatomy, components, parts, and materials of the dominant subject (e.g., if coffee cup: cup, handle, ceramic, espresso, crema, coffee beans, saucer).
+   - Secondary supporting physical objects in the immediate foreground/background.
 
 2. COMPOSITION_FRAMING_AND_SPACE:
    - Precise camera angle and perspective (top-down flat lay, isometric, low-angle, macro close-up, eye-level).
