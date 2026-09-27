@@ -8,7 +8,7 @@ import { parseJpeg, injectJpegMetadata } from '../src/jpeg.js';
 import { parsePng, injectPngMetadata, crc32 } from '../src/png.js';
 import { parseSvg, injectSvgMetadata } from '../src/svg.js';
 import { parseEps, injectEpsMetadata } from '../src/eps.js';
-import { validateSeoOutput } from '../src/seo.js';
+import { validateSeoOutput, extractFilenameHint } from '../src/seo.js';
 import { colors } from '../src/utils.js';
 
 export async function runSelfTests() {
@@ -412,6 +412,35 @@ export async function runSelfTests() {
     for (const kw of stage2Result.keywords) {
       assert(!['canon', 'nikon', 'apple', 'iso', '50mm'].includes(kw), 'Keywords must not contain forbidden camera/brand terms');
     }
+  });
+
+  // ── TEST 15: Filename Hint Extraction & AI SEO Context Integration ──
+  test('Filename Hint Extraction & AI SEO Context Integration', () => {
+    // 1. Descriptive filename should yield clean hint
+    assert.equal(
+      extractFilenameHint('shiba-inu-in-kyoto-park.jpg'),
+      'shiba inu in kyoto park'
+    );
+    assert.equal(
+      extractFilenameHint('photo/bali_tanah_lot_temple_sunset.jpeg'),
+      'bali tanah lot temple sunset'
+    );
+    assert.equal(
+      extractFilenameHint('rendang-padang-traditional-indonesian-food.png'),
+      'rendang padang traditional indonesian food'
+    );
+
+    // 2. Camera default counters & generic IDs should be ignored (return null)
+    assert.equal(extractFilenameHint('DSC_0042.JPG'), null);
+    assert.equal(extractFilenameHint('IMG_20240921_120450.jpg'), null);
+    assert.equal(extractFilenameHint('DJI_0102.jpg'), null);
+    assert.equal(extractFilenameHint('P1010234.JPG'), null);
+    assert.equal(extractFilenameHint('SAM_0012.jpg'), null);
+    assert.equal(extractFilenameHint('Untitled-1.png'), null);
+    assert.equal(extractFilenameHint('Screenshot 2026-09-27.png'), null);
+    assert.equal(extractFilenameHint('scan001.jpg'), null);
+    assert.equal(extractFilenameHint('123456789.jpg'), null);
+    assert.equal(extractFilenameHint('a1b2c3d4e5f6.jpg'), null);
   });
 
   console.log(`\n${passed === total ? colors.green : colors.red}Hasil: ${passed} dari ${total} pengujian lulus.${colors.reset}\n`);

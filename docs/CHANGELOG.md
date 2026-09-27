@@ -2,6 +2,18 @@
 
 Dokumen ini mencatat seluruh riwayat perubahan, penambahan fitur, dan perbaikan bug pada proyek **imgmeta-seo (autometadata)**.
 
+## [1.4.1] — 2026-09-27
+
+### 🚀 Fitur Baru (New Features)
+- **Integrasi Nama File sebagai Rujukan Konteks AI SEO (*Filename Context Hint*):**
+  - *Parser Cerdas (`extractFilenameHint` di `src/seo.js`):* Mengekstrak informasi berharga dari nama file asli foto (seperti nama spesies, lokasi/landmark, nama hidangan, event) dengan membersihkan delimiter (`-`, `_`, `%20`) dan membuang format counter default kamera (`DSC_...`, `IMG_...`, `DJI_...`, `P...`, `SAM_...`, `Screenshot_...`, `Untitled-...`, pure hashes/numbers).
+  - *DeepSeek Prompt Enrichment (`src/seo.js`):* Menyisipkan blok petunjuk nama file (`ORIGINAL FILENAME HINT`) ke prompt AI SEO sebagai rujukan pendukung untuk mengidentifikasi objek spesifik, ras hewan, atau lokasi geografis foto.
+  - *CLI & Web Server Sync (`src/cli.js`, `src/server.js`):* Meneruskan `fileName` pada saat eksekusi CLI `scan` maupun REST API `POST /api/analyze/:fileName`.
+  - *Invalidasi Cache Versi (`src/cache.js`):* Menyesuaikan `PROMPT_VERSION = 'v2.3.0'` untuk regenerasi cache yang sinkron dengan petunjuk nama file.
+  - *Selftest Otomatis (`test/selftest.js`):* Menambahkan Test 15 untuk menguji ketepatan ekstraksi nama file deskriptif dan pengabaian kode counter kamera bawaan.
+
+---
+
 ## [1.4.0] — 2026-09-27
 
 ### 🚀 Optimasi SEO & Algoritma Stock (Dominant Focal Object Hierarchy & Title-Tag Correlation)

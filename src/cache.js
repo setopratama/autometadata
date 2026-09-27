@@ -1,7 +1,7 @@
 import { getDb } from './db.js';
 import { sha256, writeLog } from './utils.js';
 
-export const PROMPT_VERSION = 'v2.2.0';
+export const PROMPT_VERSION = 'v2.3.0';
 
 export function getCacheKey(imageHash, promptVersion = PROMPT_VERSION) {
   return sha256(`${imageHash}:${promptVersion}`);

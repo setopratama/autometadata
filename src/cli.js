@@ -195,7 +195,7 @@ async function handleScan(targetPattern, options = {}) {
         visionDesc = vResult.visualDescription;
 
         info(`Tahap 2: Mengolah SEO dengan DeepSeek 4 Flash...`);
-        const sResult = await refineSeoMetadata(visionDesc);
+        const sResult = await refineSeoMetadata(visionDesc, { fileName });
         seoData = sResult.seo;
 
         const cost = calculateCost(vResult.modelUsed, vResult.inputTokens, vResult.outputTokens) +

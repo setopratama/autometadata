@@ -113,9 +113,10 @@ $$\text{cli.js} \longrightarrow \text{vision.js} \longrightarrow \text{seo.js} \
 ## 🤖 Pipeline AI 2-Tahap
 
 1. **Tahap 1 — Vision:**
-   Gambar $\rightarrow$ AI Vision (dengan downscale $\le 512\times512$ px + cache) $\rightarrow$ Menghasilkan deskripsi visual mentah (objek utama, suasana, komposisi, warna, konteks).
+   Gambar $\rightarrow$ AI Vision (dengan downscale $\le 512\times512$ px + cache) $\rightarrow$ Menghasilkan deskripsi visual mentah (objek fokal dominan, skala, komposisi, pencahayaan, tekstur mikro, konteks komersial).
 2. **Tahap 2 — SEO Refinement:**
-   Deskripsi visual mentah $\rightarrow$ DeepSeek 4 Flash $\rightarrow$ Menghasilkan metadata siap pakai (*title*, *description*, *tags*).
+   Deskripsi visual mentah + Petunjuk Nama File Asli (`fileName`) $\rightarrow$ DeepSeek 4 Flash $\rightarrow$ Menghasilkan metadata siap pakai (*title* 125–200 karakter, *description*, *tags* 30–45 berbobot fokal).
+   *Petunjuk Nama File (Filename Hint):* Nama file disaring secara zero-dependency via `extractFilenameHint()` untuk mengekstrak konteks lokasi, ras hewan, hidangan, atau nama subjek spesifik, sementara kode counter kamera (`DSC_`, `IMG_`, `DJI_`, dll.) diabaikan otomatis.
    *Alasan:* DeepSeek menerima input teks murni, sehingga konsumsi token jauh lebih murah dan efisien dibanding mengirim gambar berulang kali.
 
 ---
@@ -165,17 +166,17 @@ $$\text{cli.js} \longrightarrow \text{vision.js} \longrightarrow \text{seo.js} \
 ## 🏷️ Aturan SEO Stock Image (WAJIB)
 
 - **Title:**
-  - Maksimal **200 karakter**.
-  - Menyertakan rincian visual lengkap: objek utama, tekstur mikro, perspektif/sudut kamera (top-down, macro, low-angle), pencahayaan, dan konteks komersial.
+  - Rentang panjang wajib: **125 s/d 200 karakter** (`TITLE_MIN_LEN = 125`, `TITLE_MAX_LEN = 200`). Auto-enrichment cerdas jika < 125 karakter.
+  - Menyertakan rincian visual lengkap: objek fokal dominan, tekstur mikro, setting ruang, perspektif/sudut kamera, pencahayaan, dan konteks komersial (*copy space*).
   - Hindari istilah teknis kamera/gear (misal: *f/2.8, 50mm, ISO 100*).
   - Tanpa merek dagang, nama seniman, atau nama orang nyata.
 - **Description:**
-  - 1–2 kalimat efektif.
+  - 1–2 kalimat efektif mengalir (bukan daftar kata kunci).
   - Menjelaskan konteks, kegunaan, dan konsep gambar tanpa mengulang judul secara mentah.
-- **Tags / Keywords:**
-  - Target **15–25 keywords** (maksimal 49 untuk foto, 25 untuk vektor).
-  - **Urutan = Prioritas:** 10 keyword pertama memiliki bobot terbesar pada algoritma pencarian stock.
-  - **Keselarasan:** Kata kunci inti pada *Title* wajib ada di dalam 10 keyword pertama.
+- **Tags / Keywords (Piramida 4-Layer):**
+  - Target **30–45 keywords** (maksimal 49 untuk foto, 25 untuk vektor).
+  - **Top 10 Keywords (Layer 1):** Wajib 100% entitas fisik nyata/terbesar di foto (*strict concrete tangible nouns*). Dilarang memasukkan kata modifier/suasana/pencahayaan di 10 tag pertama.
+  - **Korelasi 2-Arah:** Kata-kata objek di Title wajib berada di Top 10 Tags; kata-kata setting, pencahayaan, dan copy space di Title dipetakan ke Layer 2–4 (Tags 11–45).
   - Gunakan satu bahasa konsisten sesuai profil akun kontributor.
 - **Validasi Ketat (`validateSeoOutput()`):**
   - Title > 200 karakter $\rightarrow$ potong / tolak.

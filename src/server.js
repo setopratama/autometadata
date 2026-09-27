@@ -295,7 +295,7 @@ export function startServer(port = 3030) {
         // Tahap 2: SEO Refinement (DeepSeek 4 Flash)
         let seoResult;
         try {
-          seoResult = await refineSeoMetadata(visionResult.visualDescription);
+          seoResult = await refineSeoMetadata(visionResult.visualDescription, { fileName });
         } catch (sErr) {
           logFailure('STAGE_SEO', fileName, sErr.message);
           return sendJson(res, 500, { 

@@ -4,7 +4,7 @@
 [![Type](https://img.shields.io/badge/Modules-ESM%20Pure-blue?style=flat)](https://nodejs.org/api/esm.html)
 [![Zero Dependency](https://img.shields.io/badge/Dependencies-Zero%20External-black?style=flat)](https://nodejs.org/)
 [![Database](https://img.shields.io/badge/SQLite-WAL%20Mode-003B57?style=flat&logo=sqlite)](https://nodejs.org/api/sqlite.html)
-[![Tests](https://img.shields.io/badge/Tests-8%2F8%20Passing-brightgreen?style=flat)](#-pengujian-internal-selftest)
+[![Tests](https://img.shields.io/badge/Tests-15%2F15%20Passing-brightgreen?style=flat)](#-pengujian-internal-selftest)
 [![Donate PayPal](https://img.shields.io/badge/Donate-PayPal-00457C?style=flat&logo=paypal)](https://www.paypal.com/paypalme/setopratama)
 
 **IMGMETA-SEO** adalah CLI dan Web UI berkinerja tinggi tanpa dependensi eksternal (*zero external runtime dependencies*) untuk otomatisasi metadata foto microstock. Didesain khusus untuk kontributor di **Adobe Stock, Shutterstock, Freepik, dan Getty Images**.
@@ -20,7 +20,9 @@ Tool ini menggabungkan parser biner murni dengan arsitektur **AI 2-Tahap Hemat T
 - 🚀 **Zero External Dependencies:** Semua parser dan serializer biner (JPEG, PNG, TIFF/EXIF, IPTC IIM, XMP, SVG, EPS, CRC32) ditulis murni menggunakan modul bawaan Node.js (`node:fs`, `node:buffer`, `node:crypto`, `node:sqlite`). Tidak memerlukan `exiftool`, `sharp`, atau `imagemagick`.
 - 🤖 **Pipeline AI 2-Tahap (Hemat Token):**
   1. **Tahap 1 — AI Vision (Downscale In-Memory):** Menganalisa 6 dimensi komersial (fokal utama, komposisi, pencahayaan, palet warna, tekstur mikro, dan target pasar) dengan konsumsi token minimal.
-  2. **Tahap 2 — DeepSeek 4 Flash SEO:** Mengubah analisa visual mentah menjadi metadata SEO siap stok (Title front-loaded $\le 70$ karakter, 35–45 keyword bertingkat).
+  2. **Tahap 2 — DeepSeek 4 Flash SEO:** Mengubah analisa visual mentah ditambah rujukan petunjuk nama file asli (*Filename Hint*) menjadi metadata SEO siap stok (Title 125–200 karakter, 30–45 keyword bertingkat dengan fokus objek dominan di Top 10).
+- 💡 **Rujukan Konteks Nama File (Filename Hint):** AI SEO secara cerdas membaca informasi spesifik dari nama file asli (seperti nama ras hewan, lokasi/landmark, nama menu hidangan, event) sembari memfilter kode counter kamera bawaan (`DSC_...`, `IMG_...`, `DJI_...`, `Untitled`, `Screenshot`, dll.).
+- 🎯 **Fokus Objek Dominan & Korelasi 2-Arah:** 10 tag pertama (*Layer 1*) dijamin 100% merupakan kata benda objek fisik konkret dari subjek foto terbesar dan diselaraskan secara presisi dengan kata-kata objek di Title.
 - ⚡ **Web UI Industrial Console:**
   - Antarmuka web modern dengan arsitektur **Worker Pool (Threads Konkurensi 1x–4x)**.
   - **Antrian Checklist Dinamis:** Kemampuan memproses hanya file-file tertentu yang dipilih/dicentang atau seluruh folder.
@@ -54,12 +56,13 @@ Tool ini menggabungkan parser biner murni dengan arsitektur **AI 2-Tahap Hemat T
 ```text
 Foto (photo/) 
      │
-     ▼
+     ├──(Nama File Asli: Filename Context Hint)──────────────────────────┐
+     ▼                                                                   │
 [Tahap 1: AI Vision] ──(Downscale In-Memory & Cache SHA-256)──► Deskripsi Visual 6 Pilar
                                                                          │
      ┌───────────────────────────────────────────────────────────────────┘
      ▼
-[Tahap 2: DeepSeek 4 Flash] ──(Algoritma SEO Stock)──► Title (≤70 char), Desc, 35-45 Tags
+[Tahap 2: DeepSeek 4 Flash] ──(Algoritma SEO Stock)──► Title (125-200 char), Desc, 30-45 Tags
                                                                │
      ┌─────────────────────────────────────────────────────────┘
      ▼

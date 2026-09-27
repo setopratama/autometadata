@@ -355,7 +355,39 @@ export function validateSeoOutput(raw) {
   };
 }
 
-export async function refineSeoMetadata(visualDescription) {
+export function extractFilenameHint(fileName) {
+  if (!fileName || typeof fileName !== 'string') return null;
+  const baseWithExt = fileName.split(/[/\\]/).pop();
+  const baseName = baseWithExt.replace(/\.[a-z0-9]+$/i, '').trim();
+  if (!baseName) return null;
+
+  // Filter generic screenshot / untitled names
+  if (/^(screenshot|untitled)[\s_.-]/i.test(baseName) || /^(screenshot|untitled)$/i.test(baseName)) return null;
+
+  // Filter camera default pattern counters / generic IDs
+  // e.g. DSC_0001, IMG_20240921_120450, DJI_0123, P1010234, SAM_0012, scan001...
+  const isCameraDefault = /^(img|dsc|dji|p|sam|mov|vid|photo|image|scan|picture)[\s_.-]?\d*([\s_.-]\d+)*$/i.test(baseName);
+  if (isCameraDefault) return null;
+
+  // Filter pure numbers or long hex hashes (UUIDs, md5, sha256)
+  if (/^[0-9a-f]{8,}$/i.test(baseName) || /^\d+$/.test(baseName)) return null;
+
+  // Clean separators and normalize to clean spaces
+  const cleaned = baseName
+    .replace(/[-_+]/g, ' ')
+    .replace(/%20/g, ' ')
+    .replace(/[^a-zA-Z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  // Must contain at least one meaningful alphabetic word with 2+ letters
+  const words = cleaned.split(' ').filter(w => w.length > 1 && !/^\d+$/.test(w));
+  if (words.length === 0) return null;
+
+  return cleaned.toLowerCase();
+}
+
+export async function refineSeoMetadata(visualDescription, options = {}) {
   const apiKey = process.env.OPENROUTER_API_KEY || process.env.SEO_API_KEY;
   const baseUrl = process.env.OPENROUTER_BASE_URL || process.env.SEO_BASE_URL || 'https://openrouter.ai/api/v1';
   const model = process.env.SEO_MODEL || 'deepseek/deepseek-v4-flash-0731';
@@ -365,10 +397,16 @@ export async function refineSeoMetadata(visualDescription) {
     throw new Error('OPENROUTER_API_KEY is not configured in .env');
   }
 
+  const filenameHint = options.filenameHint || extractFilenameHint(options.fileName);
+  const hintSection = filenameHint
+    ? `\nORIGINAL FILENAME HINT (PHOTOGRAPHER CONTEXT CLUE):\n"${filenameHint}"\n(Use this photographer's filename as helpful supporting context for specific subject names, locations, landmarks, species, or events, while ensuring strict visual accuracy from the visual audit).\n`
+    : '';
+
   const systemPrompt = `You are the World's Leading Microstock SEO & Keywording Algorithm Specialist (expert in Shutterstock, Adobe Stock, and Freepik indexing).
 
 Your mission is to craft maximum-visibility, high-converting metadata for stock buyers based on this visual analysis:
 "${visualDescription}"
+${hintSection}
 
 ==============================================================================
 ALGORITHMIC METADATA & KEYWORD BEST PRACTICES:
