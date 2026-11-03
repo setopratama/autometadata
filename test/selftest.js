@@ -451,7 +451,7 @@ export async function runSelfTests() {
   }
 }
 
-// Allow direct execution: node test/selftest.js
+// Allow direct execution: bun test/selftest.js
 if (process.argv[1]?.endsWith('selftest.js')) {
   runSelfTests();
 }

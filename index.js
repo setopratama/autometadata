@@ -1,7 +1,7 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 import path from 'node:path';
 
-// Load .env automatically with native Node.js
+// Load .env otomatis bila runtime menyediakan process.loadEnvFile.
 if (typeof process.loadEnvFile === 'function') {
   try {
     process.loadEnvFile(path.resolve(process.cwd(), '.env'));

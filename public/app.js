@@ -436,9 +436,9 @@
         state.files = data.files || [];
         appendLog('API', `Loaded ${state.files.length} files from photo/ & SQLite.`);
 
-        // Generate lightweight thumbnails in background for photo/.tmp/
+        // Thumbnail sidebar cukup 160px; preview besar dibuat hanya saat file dipilih.
         setTimeout(() => {
-          state.files.forEach(f => generateAndCacheThumbnail(f));
+          state.files.forEach(f => generateAndCacheThumbnail(f, 160));
         }, 100);
       }
     } catch (err) {
@@ -453,13 +453,12 @@
     }
   }
 
-  function generateAndCacheThumbnail(file) {
+  function generateAndCacheThumbnail(file, maxDim = 160) {
     if (file.format === 'svg' || file.format === 'eps') return;
     const img = new Image();
     img.crossOrigin = 'anonymous';
     img.onload = () => {
       try {
-        const maxDim = 800;
         let w = img.width;
         let h = img.height;
         if (w > maxDim || h > maxDim) {
@@ -492,6 +491,50 @@
         img.dataset.retried = 'true';
         img.src = `/api/photo/${encodeURIComponent(file.name)}?t=${Date.now()}`;
       }
+    };
+    img.src = file.fullImage || `/api/photo/${encodeURIComponent(file.name)}?t=${Date.now()}`;
+  }
+
+  // Preview editor memakai hasil resize 500px agar tidak pernah menampilkan
+  // gambar resolusi penuh di panel tengah.
+  function generatePreview(file) {
+    if (!file || file.format === 'svg' || file.format === 'eps') {
+      elements.previewImage.src = file?.fullImage || '';
+      return;
+    }
+
+    const requestId = (state.previewRequestId || 0) + 1;
+    state.previewRequestId = requestId;
+    const img = new Image();
+    img.onload = () => {
+      if (requestId !== state.previewRequestId) return;
+
+      try {
+        const maxDim = 500;
+        let w = img.naturalWidth || img.width;
+        let h = img.naturalHeight || img.height;
+        if (w > maxDim || h > maxDim) {
+          if (w > h) {
+            h = Math.round((h * maxDim) / w);
+            w = maxDim;
+          } else {
+            w = Math.round((w * maxDim) / h);
+            h = maxDim;
+          }
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        elements.previewImage.src = canvas.toDataURL('image/jpeg', 0.82);
+      } catch (e) {
+        elements.previewImage.src = file.fullImage || `/api/photo/${encodeURIComponent(file.name)}`;
+      }
+    };
+    img.onerror = () => {
+      if (requestId !== state.previewRequestId) return;
+      elements.previewImage.src = file.fullImage || `/api/photo/${encodeURIComponent(file.name)}`;
     };
     img.src = file.fullImage || `/api/photo/${encodeURIComponent(file.name)}?t=${Date.now()}`;
   }
@@ -665,18 +708,7 @@
     elements.activeFileTitle.textContent = file.name;
     elements.activeFilePath.textContent = `photo/${file.name}`;
     
-    // Auto-retry image load fallback on previewImage (fallback to full photo if tmp thumbnail not ready)
-    elements.previewImage.onerror = function() {
-      if (!this.dataset.retried) {
-        this.dataset.retried = 'true';
-        const freshUrl = `/api/photo/${encodeURIComponent(file.name)}?t=${Date.now()}`;
-        setTimeout(() => { this.src = freshUrl; }, 150);
-      }
-    };
-    elements.previewImage.onload = function() {
-      delete this.dataset.retried;
-    };
-    elements.previewImage.src = file.thumbnail || `/api/thumbnail/${encodeURIComponent(file.name)}?t=${Date.now()}`;
+    generatePreview(file);
 
     elements.specFormat.textContent = file.format.toUpperCase();
     elements.specDimensions.textContent = file.dimensions || '-';
@@ -1222,7 +1254,7 @@
           elements.activeFileTitle.textContent = data.fileName;
           elements.activeFilePath.textContent = `photo/${data.fileName}`;
           appendLog('SUCCESS', `Metadata binary written & file renamed to: ${data.fileName}`);
-          generateAndCacheThumbnail(file);
+          generateAndCacheThumbnail(file, 160);
         } else {
           file.thumbnail = `/api/thumbnail/${encodeURIComponent(file.name)}?t=${Date.now()}`;
           appendLog('SUCCESS', `Synchronized metadata written to file binary: photo/${file.name}`);
@@ -1305,7 +1337,7 @@
                   targetFile.filePath = r.filePath;
                   targetFile.thumbnail = r.thumbnailUrl || `/api/thumbnail/${encodeURIComponent(r.newFileName)}?t=${Date.now()}`;
                   targetFile.fullImage = r.fullImageUrl || `/api/photo/${encodeURIComponent(r.newFileName)}?t=${Date.now()}`;
-                  generateAndCacheThumbnail(targetFile);
+                  generateAndCacheThumbnail(targetFile, 160);
                 } else {
                   targetFile.thumbnail = `/api/thumbnail/${encodeURIComponent(targetFile.name)}?t=${Date.now()}`;
                 }
@@ -1378,7 +1410,7 @@
         appendLog('SUCCESS', `Shutterstock CSV successfully downloaded: ${filename}`);
       } else {
         if (res.status === 404) {
-          throw new Error('Server Node.js belum di-restart dengan fitur CSV terbaru. Silakan muat ulang server (npm run web).');
+          throw new Error('Server Bun belum di-restart dengan fitur CSV terbaru. Silakan muat ulang server (bun run web).');
         }
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error || `Gagal menggenerate CSV (HTTP ${res.status})`);

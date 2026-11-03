@@ -114,7 +114,7 @@ export function getFileSha256(filePath) {
   return sha256(buffer);
 }
 
-// Pure Node.js File Scanner (Ignores hidden folders like .tmp and subdirectories by default)
+// Pure runtime file scanner (mengabaikan folder tersembunyi seperti .tmp secara default)
 export function scanDirectory(dirPath, extensions = ['.jpg', '.jpeg', '.png', '.svg', '.eps'], recursive = false) {
   const results = [];
   if (!fs.existsSync(dirPath)) return results;

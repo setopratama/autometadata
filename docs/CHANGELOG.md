@@ -2,6 +2,14 @@
 
 Dokumen ini mencatat seluruh riwayat perubahan, penambahan fitur, dan perbaikan bug pada proyek **imgmeta-seo (autometadata)**.
 
+## [Unreleased] — 2026-11-03
+
+### ⚡ Runtime & Web UI Performance
+- **Migrasi runtime ke Bun:** Script proyek, shebang CLI, panduan kontribusi, dan dokumentasi penggunaan sekarang memakai Bun `>=1.4.0`. API `node:sqlite` tetap dipakai melalui kompatibilitas Node.js Bun.
+- **Optimasi ukuran gambar Web UI:** Thumbnail panel kiri diproses maksimal **160 px**, sedangkan preview aktif di panel tengah dihasilkan maksimal **500 px** saat file dipilih.
+- **Preview on-demand:** Preview besar tidak lagi memakai thumbnail sidebar dan tidak dibuat untuk seluruh file saat daftar dimuat, sehingga beban decode gambar awal lebih rendah.
+- **Validasi:** `bun run selftest` lulus **15/15** pengujian.
+
 ## [1.4.1] — 2026-09-27
 
 ### 🚀 Fitur Baru (New Features)

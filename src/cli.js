@@ -55,7 +55,7 @@ export async function runCli(argv) {
     return;
   }
 
-  warn(`Perintah tidak dikenal: "${command}". Jalankan "node index.js --help" untuk bantuan.`);
+  warn(`Perintah tidak dikenal: "${command}". Jalankan "bun index.js --help" untuk bantuan.`);
 }
 
 function showHelp() {
@@ -63,7 +63,7 @@ function showHelp() {
 ${colors.bold}IMGMETA-SEO — CLI & Web UI Pemroses Metadata Foto Microstock${colors.reset}
 
 ${colors.yellow}PENGGUNAAN:${colors.reset}
-  node index.js <perintah> [opsi]
+  bun index.js <perintah> [opsi]
 
 ${colors.yellow}PERINTAH UTAMA:${colors.reset}
   ${colors.green}scan <path>${colors.reset}         Scan foto & analisa AI Vision + DeepSeek SEO
@@ -79,13 +79,13 @@ ${colors.yellow}OPSI SCAN & EXPORT:${colors.reset}
   ${colors.cyan}--no-color${colors.reset}          Matikan format warna ANSI pada konsol
 
 ${colors.yellow}CONTOH:${colors.reset}
-  node index.js scan "photo/*.*"
-  node index.js scan "photo/*.*" --apply
-  node index.js scan "photo/*.*" --apply --rename
-  node index.js export photo --out=shutterstock.csv
-  node index.js read "photo/*.*"
-  node index.js web 3030
-  npm run selftest
+  bun index.js scan "photo/*.*"
+  bun index.js scan "photo/*.*" --apply
+  bun index.js scan "photo/*.*" --apply --rename
+  bun index.js export photo --out=shutterstock.csv
+  bun index.js read "photo/*.*"
+  bun index.js web 3030
+  bun run selftest
 `);
 }
 
@@ -210,7 +210,7 @@ async function handleScan(targetPattern, options = {}) {
         }, cost);
       }
 
-      console.log(`  ${colors.green}Title:${colors.reset}       ${seoData.title} (${seoData.title.length}/70 char)`);
+      console.log(`  ${colors.green}Title:${colors.reset}       ${seoData.title} (${seoData.title.length}/200 char)`);
       console.log(`  ${colors.green}Description:${colors.reset} ${seoData.description}`);
       console.log(`  ${colors.green}Tags (${seoData.keywords.length}):${colors.reset}  ${seoData.keywords.join(', ')}`);
 

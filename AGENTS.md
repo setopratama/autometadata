@@ -6,18 +6,18 @@
 
 ## 📌 Ringkasan Proyek
 
-CLI Node.js & Web UI tanpa dependensi eksternal untuk memproses metadata foto microstock secara otomatis:
+CLI Bun & Web UI tanpa dependensi eksternal untuk memproses metadata foto microstock secara otomatis:
 
 - **Alur Kerja Tunggal:** Scan folder foto $\rightarrow$ Kirim ke AI Vision (hemat token) $\rightarrow$ DeepSeek 4 Flash olah hasil analisa menjadi SEO siap stock $\rightarrow$ Injeksi ke metadata biner file foto.
 - **Output Injeksi:** Title, description, dan tags matang siap bersaing di *Adobe Stock / Shutterstock / Freepik* — 3 lapisan sinkron (**IPTC IIM + EXIF IFD0 + Adobe XMP Dublin Core**) langsung ke biner file, tanpa dependensi tool eksternal seperti `exiftool` atau `sharp`.
-- **Runtime:** Node.js $\ge$ 22, `"type": "module"` (ESM murni, memanfaatkan `node:sqlite` bawaan).
+- **Runtime:** Bun $\ge$ 1.4, `"type": "module"` (ESM murni, kompatibel dengan `node:sqlite` bawaan).
 - **Format Didukung:** JPEG (`.jpg`/`.jpeg`), PNG (`.png`), SVG (`.svg`), EPS (`.eps`).
 - **Folder Kerja Foto:** `photo/` (root project).
 - **Bahasa Dokumentasi & Komentar:** Bahasa Indonesia.
 
 > [!IMPORTANT]
 > **Aturan Utama (Zero Dependency):**
-> **JANGAN** menambah dependensi runtime eksternal untuk parser/serializer biner. Semua parser (JPEG, PNG, TIFF/EXIF, IPTC IIM, XMP, SVG, EPS, CRC32) ditulis manual murni menggunakan Node.js standard library (`node:fs`, `node:buffer`, `node:crypto`, `node:sqlite`, dll.).
+> **JANGAN** menambah dependensi runtime eksternal untuk parser/serializer biner. Semua parser (JPEG, PNG, TIFF/EXIF, IPTC IIM, XMP, SVG, EPS, CRC32) ditulis manual murni menggunakan API bawaan Bun/Node-compatible (`node:fs`, `node:buffer`, `node:crypto`, `node:sqlite`, dll.).
 
 > [!WARNING]
 > **Aturan Git:**
@@ -46,25 +46,25 @@ $$\text{Scan Foto} \longrightarrow \text{AI Vision (Downscale)} \longrightarrow 
 
 ```bash
 # Pipeline utama: scan folder photo/ -> AI Vision -> SEO -> tulis metadata
-npm start
+bun run start
 
 # Jalankan Web UI di http://localhost:3030
-npm run web
+bun run web
 
 # Pengujian internal round-trip (EXIF, IPTC, XMP, PNG, SVG, EPS)
-npm run selftest
+bun run selftest
 
 # Bantuan & daftar opsi CLI
-node index.js --help
+bun index.js --help
 
 # Scan & tampilkan metadata hasil AI (dry-run, tanpa menulis ke file)
-node index.js scan "photo/*.*"
+bun index.js scan "photo/*.*"
 
 # Scan + tulis langsung title/description/tags ke metadata biner
-node index.js scan "photo/*.*" --apply
+bun index.js scan "photo/*.*" --apply
 
 # Baca metadata yang sudah ada di file
-node index.js read "photo/*.*"
+bun index.js read "photo/*.*"
 ```
 
 ---
@@ -79,8 +79,8 @@ docs/               # Dokumentasi teknis & arsitektur
 
 src/
   cli.js            # Parsing argumen + subperintah: scan / read / web / db / selftest
-  server.js         # HTTP server murni Node.js (REST API & static files untuk Web UI)
-  db.js             # SQLite bawaan Node.js (node:sqlite) — cache AI & riwayat
+  server.js         # HTTP server murni Bun (REST API & static files untuk Web UI)
+  db.js             # SQLite bawaan Bun via node:sqlite — cache AI & riwayat
 
   # ── PIPELINE AI (2 TAHAP) ──
   vision.js         # [TAHAP 1] Kirim gambar ke AI Vision (downscale + cache SHA-256 + cost tracking)
@@ -101,7 +101,7 @@ src/
 
 public/             # Aset Web UI (Frontend): index.html, style.css, app.js
 test/
-  selftest.js       # Unit test round-trip biner; dipanggil lewat "npm run selftest"
+  selftest.js       # Unit test round-trip biner; dipanggil lewat "bun run selftest"
 ```
 
 ### Alur Panggilan Pipeline:
@@ -215,7 +215,7 @@ $$\text{cli.js} \longrightarrow \text{vision.js} \longrightarrow \text{seo.js} \
 
 1. **Selftest Biner:**
    ```bash
-   npm run selftest
+   bun run selftest
    ```
    *Wajib menghasilkan output akhir:* `"Semua pengujian lulus"`.
 2. **Pengujian Fitur AI:**
@@ -223,7 +223,7 @@ $$\text{cli.js} \longrightarrow \text{vision.js} \longrightarrow \text{seo.js} \
 3. **Klaim Hemat Token:**
    Ukur konsumsi token riil sebelum dan sesudah optimasi. Jangan menulis klaim penghematan token di dokumentasi jika belum terverifikasi secara terukur.
 4. **Static Review:**
-   Bila environment tidak mendukung eksekusi Node, lakukan tinjauan statis mendalam mencakup sintaksis, invariant biner, dan konsistensi skema import/export.
+   Bila environment tidak mendukung eksekusi Bun, lakukan tinjauan statis mendalam mencakup sintaksis, invariant biner, dan konsistensi skema import/export.
 
 ---
 
@@ -232,12 +232,12 @@ $$\text{cli.js} \longrightarrow \text{vision.js} \longrightarrow \text{seo.js} \
 1. ❌ **Mengirim gambar resolusi penuh ke AI Vision** *(selalu downscale $\le 512\times512$)*.
 2. ❌ **Memanggil API AI tanpa memeriksa cache SHA-256 database terlebih dahulu**.
 3. ❌ **Menaruh aturan SEO Adobe Stock di prompt AI Vision** *(simpan di `seo.js`)*.
-4. ❌ **Menghasilkan title > 70 karakter atau membiarkan tag mengandung trademark / nama brand**.
+4. ❌ **Menghasilkan title di luar rentang 125–200 karakter atau membiarkan tag mengandung trademark / nama brand**.
 5. ❌ **Menaruh keyword utama di luar 10 posisi teratas**.
 6. ❌ **Menulis teks IPTC tanpa deklarasi UTF-8** *(merusak karakter non-latin)*.
 7. ❌ **Menghapus seluruh segmen APP13** alih-alih hanya memperbarui resource IPTC 8BIM.
 8. ❌ **Mereset `model.endian` ke default `II`** *(file big-endian `MM` akan rusak)*.
 9. ❌ **Membuang thumbnail IFD1 saat proses edit metadata**.
 10. ❌ **Menulis tag IFD tidak berurutan atau salah menghitung null-terminator string**.
-11. ❌ **Menambah dependensi npm eksternal** untuk manipulasi biner gambar.
+11. ❌ **Menambah dependensi eksternal** untuk manipulasi biner gambar.
 12. ❌ **Melakukan eksekusi Git (commit/push) sedikit-sedikit (mikro-push)** atau tanpa instruksi eksplisit dari owner.

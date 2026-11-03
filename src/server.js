@@ -585,7 +585,7 @@ export function startServer(port = 3030) {
   server.on('error', (err) => {
     if (err.code === 'EADDRINUSE') {
       console.error('\x1b[31m%s\x1b[0m', `✗ Port ${port} sedang digunakan oleh proses lain.`);
-      console.log('\x1b[33m%s\x1b[0m', `  Tips: Tutup proses sebelumnya atau jalankan dengan port lain, contoh: node index.js web 3031`);
+      console.log('\x1b[33m%s\x1b[0m', `  Tips: Tutup proses sebelumnya atau jalankan dengan port lain, contoh: bun index.js web 3031`);
     } else {
       console.error('\x1b[31m%s\x1b[0m', `✗ Server error: ${err.message}`);
     }

@@ -1,6 +1,6 @@
 # IMGMETA-SEO — Microstock Metadata Automation Console
 
-[![Node.js Version](https://img.shields.io/badge/Node.js-%E2%89%A522.0.0-339933?style=flat&logo=node.js)](https://nodejs.org/)
+[![Bun Version](https://img.shields.io/badge/Bun-%E2%89%A51.4.0-f9f1e1?style=flat&logo=bun)](https://bun.sh/)
 [![Type](https://img.shields.io/badge/Modules-ESM%20Pure-blue?style=flat)](https://nodejs.org/api/esm.html)
 [![Zero Dependency](https://img.shields.io/badge/Dependencies-Zero%20External-black?style=flat)](https://nodejs.org/)
 [![Database](https://img.shields.io/badge/SQLite-WAL%20Mode-003B57?style=flat&logo=sqlite)](https://nodejs.org/api/sqlite.html)
@@ -17,12 +17,13 @@ Tool ini menggabungkan parser biner murni dengan arsitektur **AI 2-Tahap Hemat T
 
 ## ✨ Fitur Utama
 
-- 🚀 **Zero External Dependencies:** Semua parser dan serializer biner (JPEG, PNG, TIFF/EXIF, IPTC IIM, XMP, SVG, EPS, CRC32) ditulis murni menggunakan modul bawaan Node.js (`node:fs`, `node:buffer`, `node:crypto`, `node:sqlite`). Tidak memerlukan `exiftool`, `sharp`, atau `imagemagick`.
+- 🚀 **Zero External Dependencies:** Semua parser dan serializer biner (JPEG, PNG, TIFF/EXIF, IPTC IIM, XMP, SVG, EPS, CRC32) ditulis murni menggunakan API bawaan Bun/Node-compatible (`node:fs`, `node:buffer`, `node:crypto`, `node:sqlite`). Tidak memerlukan `exiftool`, `sharp`, atau `imagemagick`.
 - 🤖 **Pipeline AI 2-Tahap (Hemat Token):**
   1. **Tahap 1 — AI Vision (Downscale In-Memory):** Menganalisa 6 dimensi komersial (fokal utama, komposisi, pencahayaan, palet warna, tekstur mikro, dan target pasar) dengan konsumsi token minimal.
   2. **Tahap 2 — DeepSeek 4 Flash SEO:** Mengubah analisa visual mentah ditambah rujukan petunjuk nama file asli (*Filename Hint*) menjadi metadata SEO siap stok (Title 125–200 karakter, 30–45 keyword bertingkat dengan fokus objek dominan di Top 10).
 - 💡 **Rujukan Konteks Nama File (Filename Hint):** AI SEO secara cerdas membaca informasi spesifik dari nama file asli (seperti nama ras hewan, lokasi/landmark, nama menu hidangan, event) sembari memfilter kode counter kamera bawaan (`DSC_...`, `IMG_...`, `DJI_...`, `Untitled`, `Screenshot`, dll.).
 - 🎯 **Fokus Objek Dominan & Korelasi 2-Arah:** 10 tag pertama (*Layer 1*) dijamin 100% merupakan kata benda objek fisik konkret dari subjek foto terbesar dan diselaraskan secara presisi dengan kata-kata objek di Title.
+- 🖼️ **Preview Web UI Hemat Memori:** Thumbnail antrian dikompres maksimal 160 px, sedangkan preview aktif di panel tengah dibuat maksimal 500 px hanya ketika file dipilih.
 - ⚡ **Web UI Industrial Console:**
   - Antarmuka web modern dengan arsitektur **Worker Pool (Threads Konkurensi 1x–4x)**.
   - **Antrian Checklist Dinamis:** Kemampuan memproses hanya file-file tertentu yang dipilih/dicentang atau seluruh folder.
@@ -93,8 +94,8 @@ autometadata/
 │   └── app.js
 ├── src/                # Kode sumber engine backend & binary parsers
 │   ├── cli.js          # Subperintah CLI (scan, read, web, selftest)
-│   ├── server.js       # HTTP server murni Node.js (REST API & Web UI)
-│   ├── db.js           # Engine SQLite WAL bawaan (node:sqlite)
+│   ├── server.js       # HTTP server murni Bun (REST API & Web UI)
+│   ├── db.js           # Engine SQLite WAL bawaan Bun (node:sqlite)
 │   ├── vision.js       # Tahap 1: AI Vision analysis
 │   ├── seo.js          # Tahap 2: DeepSeek SEO refinement
 │   ├── cache.js        # Cache SHA-256 & prompt versioning
@@ -116,7 +117,7 @@ autometadata/
 
 ## ⚙️ Persyaratan Sistem & Instalasi
 
-- **Node.js $\ge$ 22.0.0** (Memerlukan dukungan bawaan ESM dan `node:sqlite`).
+- **Bun $\ge$ 1.4.0** (memerlukan dukungan ESM dan kompatibilitas `node:sqlite`).
 - Kunci API OpenRouter (atau provider OpenAI/DeepSeek kompatibel).
 
 ### 1. Clone Repository
@@ -149,8 +150,8 @@ SEO_MODEL=deepseek/deepseek-v4-flash-0731
 ### 1. Menjalankan Web UI Console
 Jalankan server lokal:
 ```bash
-npm run web
-# atau: node index.js web 3030
+bun run web
+# atau: bun index.js web 3030
 ```
 Buka peramban di **`http://localhost:3030`**.
 
@@ -167,28 +168,28 @@ Buka peramban di **`http://localhost:3030`**.
 
 #### Scan & Preview Hasil AI (Dry-Run / Tanpa Menulis File)
 ```bash
-npm start
-# atau: node index.js scan "photo/*.*"
+bun run start
+# atau: bun index.js scan "photo/*.*"
 ```
 
 #### Scan + Injeksi Langsung ke Biner File
 ```bash
-node index.js scan "photo/*.*" --apply
+bun index.js scan "photo/*.*" --apply
 ```
 
 #### Scan + Injeksi + Otomatis Rename File Sesuai Title
 ```bash
-node index.js scan "photo/*.*" --apply --rename
+bun index.js scan "photo/*.*" --apply --rename
 ```
 
 #### Membaca Metadata yang Ada di File
 ```bash
-node index.js read "photo/*.*"
+bun index.js read "photo/*.*"
 ```
 
 #### Bantuan & Opsi Perintah
 ```bash
-node index.js --help
+bun index.js --help
 ```
 
 ---
@@ -198,7 +199,7 @@ node index.js --help
 Verifikasi integritas parser biner dan validasi algoritma SEO dengan menjalankan internal self-test:
 
 ```bash
-npm run selftest
+bun run selftest
 ```
 
 Output pengujian:
@@ -222,7 +223,7 @@ Semua pengujian lulus.
 
 ## 🏷️ Standar Algoritma SEO Stock
 
-1. **Title (Maksimal 70 Karakter):**
+1. **Title (125–200 Karakter):**
    - Menggunakan formula *front-loaded*: `[Kata Benda Utama] + [Modifier Komersial] + [Konteks Komposisi]`.
    - Tanpa kata pengisi (*A, An, The, Photo of, Image of*).
 2. **Description:**
